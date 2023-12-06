@@ -1,1 +1,1 @@
-# TinyMPC-python
+# tinympc-python

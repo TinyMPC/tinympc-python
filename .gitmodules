@@ -1,0 +1,3 @@
+[submodule "src/TinyMPC"]
+	path = src/TinyMPC
+	url = https://github.com/TinyMPC/TinyMPC
