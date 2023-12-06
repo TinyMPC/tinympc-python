@@ -74,6 +74,8 @@ if __name__ == '__main__':
     max_iter = 100
     check_termination = 1
 
+    # Make more sense with notebook since sequential execution
+
     prob = tinympc.TinyMPC()
     prob.load_lib(tinympc_dir + "/build/tinympc/libtinympcShared.so")  # Load the library
     prob.setup(n, m, N, A, B, Q, R, x_min, x_max, u_min, u_max, rho, abs_pri_tol, abs_dual_tol, max_iter, check_termination)

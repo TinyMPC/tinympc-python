@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 
 .vscode
+generated_code*/
+*.mp4
