@@ -5,6 +5,14 @@
 add_library(tinympcShared SHARED
 admm.cpp
 tiny_wrapper.cpp
+tiny_data_workspace.cpp
 )
 
 target_include_directories(tinympcShared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+add_library(tinympc STATIC
+admm.cpp
+tiny_wrapper.cpp
+)
+
+target_include_directories(tinympc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

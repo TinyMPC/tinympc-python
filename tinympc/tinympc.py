@@ -1,6 +1,5 @@
 import ctypes
 
-
 class TinyMPC:
     # Problem data
     n = 0
@@ -26,30 +25,22 @@ class TinyMPC:
 
     lib = None
 
-    def __init__(self, lib_dir):
-        self.lib = ctypes.CDLL(lib_dir + "/binaries/libtinympc.so")
-        self.lib.tiny_codegen.argtypes = [
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.POINTER(ctypes.c_double),
-            ctypes.c_double,
-            ctypes.c_double,
-            ctypes.c_double,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_char_p,
-            ctypes.c_char_p,
-        ]
-        self.lib.tiny_codegen.restype = ctypes.c_int
+    def __init__(self):
+        pass
+
+    def load_lib(self, lib_dir, codegen=False):
+        self.lib = ctypes.CDLL(lib_dir)
+        # self.lib.set_x.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.set_x0.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.set_xref.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.set_umin.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.set_umax.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.set_xmin.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.set_xmax.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.reset_dual_variables.argtypes = [ctypes.c_int]
+        # self.lib.call_tiny_solve.argtypes = [ctypes.c_int]
+        # self.lib.get_x.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+        # self.lib.get_u.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
 
     def setup(
         self,
@@ -88,7 +79,31 @@ class TinyMPC:
         self.check_termination = check_termination
         return True
 
+    # If this function fails, you are already using the generated code 
+    # This uses double instead of float
     def tiny_codegen(self, tinympc_dir, output_dir):
+        self.lib.tiny_codegen.argtypes = [
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.POINTER(ctypes.c_double),
+                ctypes.c_double,
+                ctypes.c_double,
+                ctypes.c_double,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_char_p,
+                ctypes.c_char_p,
+            ]
+        self.lib.tiny_codegen.restype = ctypes.c_int
         _A = (ctypes.c_double * (self.n * self.n))(*self.A)
         _B = (ctypes.c_double * (self.n * self.m))(*self.B)
         _Q = (ctypes.c_double * (self.n * self.n))(*self.Q)
@@ -121,9 +136,9 @@ class TinyMPC:
         )
         return True
 
+    # All the functions below are wrappers for the generated code, using float instead of double
     def set_x0(self, x0, verbose=1):
-        _x0 = (ctypes.c_double * self.n)(*x0)
+        _x0 = (ctypes.c_float * self.n)(*x0)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_x0(_x0, _verbose)
         return True
-    

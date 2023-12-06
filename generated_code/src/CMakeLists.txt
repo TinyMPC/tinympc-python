@@ -4,3 +4,6 @@
 
 add_executable(tiny_main tiny_main.cpp tiny_data_workspace.cpp)
 target_link_libraries(tiny_main LINK_PUBLIC tinympc)
+
+add_library(tinywrapper SHARED tiny_data_workspace.cpp)
+target_link_libraries(tinywrapper LINK_PUBLIC tinympc)
