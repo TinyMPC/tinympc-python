@@ -142,3 +142,16 @@ class TinyMPC:
         _verbose = ctypes.c_int(verbose)
         self.lib.set_x0(_x0, _verbose)
         return True
+
+    def solve(self, verbose=1):
+        _verbose = ctypes.c_int(verbose)
+        self.lib.call_tiny_solve(_verbose)
+        return True
+    
+    def get_u(self, u, verbose=1):
+        _verbose = ctypes.c_int(verbose)
+        _u = (ctypes.c_float * (self.m * (self.N - 1)))()
+        self.lib.get_u(_u, _verbose)
+        for i in range(self.m * (self.N - 1)):
+            u[i] = _u[i]
+        return True
