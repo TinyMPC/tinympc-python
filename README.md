@@ -3,7 +3,7 @@
 1. Clone this repo with submodule
 
 ```bash
-git clone --recursive <repository_url>
+git clone --recursive https://github.com/TinyMPC/tinympc-python.git
 ```
 
 2. Install package
@@ -13,8 +13,4 @@ cd tinympc-python
 pip install -e .
 ```
 
-3. Run the example
-
-```bash
-python examples/code_generation.py
-```
+3. Run the interactive example `interactive_cartpole.ipynb`
