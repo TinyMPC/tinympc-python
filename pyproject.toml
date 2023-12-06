@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Python wrapper for TinyMPC"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.6"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

@@ -1,4 +1,5 @@
-from tinympc import TinyMPC
+import ctypes
+import tinympc
 
 if __name__ == '__main__':
     n = 4
@@ -42,8 +43,8 @@ if __name__ == '__main__':
     max_iter = 100
     check_termination = 1
     tinympc_dir = "/home/khai/SSD/Code/tinympc-python/src/TinyMPC"
-    output_dir = "/../generated_code"
+    output_dir = "/home/khai/SSD/Code/tinympc-python/generated_code"
 
-    prob = TinyMPC("/home/khai/SSD/Code/tinympc-python/src/TinyMPC/binaries/libtinympc.so")
+    prob = tinympc.TinyMPC(tinympc_dir)
     prob.setup(n, m, N, A, B, Q, R, x_min, x_max, u_min, u_max, rho, abs_pri_tol, abs_dual_tol, max_iter, check_termination)
     prob.tiny_codegen(tinympc_dir, output_dir)
