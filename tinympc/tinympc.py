@@ -1,5 +1,6 @@
 import ctypes
 
+
 class TinyMPC:
     # Problem data
     n = 0
@@ -88,27 +89,27 @@ class TinyMPC:
         return True
 
     def tiny_codegen(self, tinympc_dir, output_dir):
-        A = (ctypes.c_double * (self.n * self.n))(*self.A)
-        B = (ctypes.c_double * (self.n * self.m))(*self.B)
-        Q = (ctypes.c_double * (self.n * self.n))(*self.Q)
-        R = (ctypes.c_double * (self.m * self.m))(*self.R)
-        x_min = (ctypes.c_double * (self.n * self.N))(*self.x_min)
-        x_max = (ctypes.c_double * (self.n * self.N))(*self.x_max)
-        u_min = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_min)
-        u_max = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_max)
+        _A = (ctypes.c_double * (self.n * self.n))(*self.A)
+        _B = (ctypes.c_double * (self.n * self.m))(*self.B)
+        _Q = (ctypes.c_double * (self.n * self.n))(*self.Q)
+        _R = (ctypes.c_double * (self.m * self.m))(*self.R)
+        _x_min = (ctypes.c_double * (self.n * self.N))(*self.x_min)
+        _x_max = (ctypes.c_double * (self.n * self.N))(*self.x_max)
+        _u_min = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_min)
+        _u_max = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_max)
 
         self.lib.tiny_codegen(
             self.n,
             self.m,
             self.N,
-            A,
-            B,
-            Q,
-            R,
-            x_min,
-            x_max,
-            u_min,
-            u_max,
+            _A,
+            _B,
+            _Q,
+            _R,
+            _x_min,
+            _x_max,
+            _u_min,
+            _u_max,
             self.rho,
             self.abs_pri_tol,
             self.abs_dual_tol,
@@ -119,3 +120,10 @@ class TinyMPC:
             output_dir.encode("utf-8"),
         )
         return True
+
+    def set_x0(self, x0, verbose=1):
+        _x0 = (ctypes.c_double * self.n)(*x0)
+        _verbose = ctypes.c_int(verbose)
+        self.lib.set_x0(_x0, _verbose)
+        return True
+    
