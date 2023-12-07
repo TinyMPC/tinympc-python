@@ -226,11 +226,3 @@ class TinyMPC:
         _verbose = ctypes.c_int(verbose)
         self.lib.reset_dual_variables(_verbose)
         return True
-    
-    def get_xref(self, x, verbose=1):
-        _verbose = ctypes.c_int(verbose)
-        _x = (ctypes.c_float * (self.n * self.N))()
-        self.lib.get_xref(_x, _verbose)
-        for i in range(self.n * self.N):
-            x[i] = _x[i]
-        return True
