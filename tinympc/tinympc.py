@@ -33,7 +33,7 @@ class TinyMPC:
 
 
     # Load the any shared library
-    def load_lib(self, lib_dir, codegen=False):
+    def load_lib(self, lib_dir):
         self.lib = ctypes.CDLL(lib_dir)
         # self.lib.set_x.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
         # self.lib.set_x0.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
