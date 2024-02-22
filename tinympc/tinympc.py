@@ -1,6 +1,7 @@
 import ctypes
 import subprocess
 import os
+import sys
 
 class TinyMPC:
     # Problem data
@@ -158,8 +159,17 @@ class TinyMPC:
         subprocess.run(cmake_configure_cmd, cwd=build_directory)
 
         # Run the build process (e.g., make)
-        cmake_build_cmd = ["cmake", "--build", "."]
-        # cmake_build_cmd = ["make"]
+        cmake_build_cmd = ''
+        if sys.platform == 'win32' or 'cygwin': # windows system
+            cmake_build_cmd = ["cmake", "--build", "."]
+        elif sys.platform == 'darwin': # macOS
+            cmake_build_cmd = ["make"]
+        elif sys.platform == 'limux' # linux
+            cmake_build_cmd = ["make"]
+        else:
+            # error
+            error("TinyMPC does not support your operating system: {}".format(sys.platform))
+        
         subprocess.run(cmake_build_cmd, cwd=build_directory)
         
         return True
