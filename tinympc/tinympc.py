@@ -146,19 +146,20 @@ class TinyMPC:
 
 
     # Compile the generated code
-    def compile_lib(self, dir):
+    def compile_lib(self, src_dir):
         # Specify the path to the build directory (where CMake will generate build files)
-        build_directory = dir + "/build"
+        build_directory = src_dir + "/build"
 
         # Make sure the build directory exists
         os.makedirs(build_directory, exist_ok=True)
 
         # Run CMake configuration
-        cmake_configure_cmd = ["cmake", dir]
+        cmake_configure_cmd = ["cmake", src_dir]
         subprocess.run(cmake_configure_cmd, cwd=build_directory)
 
         # Run the build process (e.g., make)
         cmake_build_cmd = ["cmake", "--build", "."]
+        # cmake_build_cmd = ["make"]
         subprocess.run(cmake_build_cmd, cwd=build_directory)
         
         return True
