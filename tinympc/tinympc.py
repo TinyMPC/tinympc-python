@@ -164,7 +164,7 @@ class TinyMPC:
             cmake_build_cmd = ["cmake", "--build", "."]
         elif sys.platform == 'darwin': # macOS
             cmake_build_cmd = ["make"]
-        elif sys.platform == 'limux' # linux
+        elif sys.platform == 'linux' # linux
             cmake_build_cmd = ["make"]
         else:
             # error
