@@ -21,6 +21,6 @@ pip install -e .
 
 ## Documentation
 
-The interface is documented [here](https://tinympc.org/docs/).
+The interface is documented [here](https://tinympc.org/).
 
 ## Packaging
