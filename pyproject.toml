@@ -3,10 +3,11 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tinympc"
-version = "0.0.2"
+name = "tinympc_sam_schoedel"
+version = "0.0.13"
 authors = [
   { name="Khai Nguyen", email="khai.nx1201@gmail.com" },
+  { name="Sam Schoedel", email="seschoedel@gmail.com" },
 ]
 description = "Python wrapper for TinyMPC"
 readme = "README.md"
