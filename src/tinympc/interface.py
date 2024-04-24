@@ -33,7 +33,7 @@ class TinyMPC:
         pass
 
 
-    # Load the any shared library
+    # Load the shared library
     def load_lib(self, lib_dir):
         self.lib = ctypes.CDLL(lib_dir)
         # self.lib.set_x.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
@@ -122,6 +122,7 @@ class TinyMPC:
         _u_min = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_min)
         _u_max = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_max)
 
+        # TODO: update tiny_codegen to return an error code instead of printing a bunch of stuff
         self.lib.tiny_codegen(
             self.n,
             self.m,
@@ -174,7 +175,8 @@ class TinyMPC:
         
         return True
 
-
+    # TODO: make verbose false by default
+    
     # All the functions below are wrappers for the generated code, using float instead of double
     def set_x0(self, x0, verbose=1):
         _x0 = (ctypes.c_float * self.n)(*x0)
