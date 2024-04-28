@@ -26,8 +26,10 @@ dependencies = [
 [project.urls]
 Homepage = "https://tinympc.org"
 
-[tool.setuptools_scm]
+[tool.scikit-build]
+wheel.install-dir = "tinympc"
 
-[tool.black]
-line-length = 88
-target-version = ['py39']
+[tool.scikit-build.cmake.define]
+TINYMPC_EXT_MODULE_NAME = "ext_tinympc"
+
+[tool.setuptools_scm]

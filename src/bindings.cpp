@@ -5,13 +5,12 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
-#include "osqp_api_functions.h"
-#include "osqp_api_types.h"
+#include "tinympc/admm.hpp"
 
 
 class PyTinySolution {
     public:
-        PyOSQPSolution(TinySolution&, OSQPInt, OSQPInt);
+        PyTinySolution(TinySolution&, OSQPInt, OSQPInt);
         py::array_t<OSQPFloat> get_x();
         py::array_t<OSQPFloat> get_y();
         py::array_t<OSQPFloat> get_prim_inf_cert();
@@ -22,7 +21,7 @@ class PyTinySolution {
         OSQPSolution& _solution;
 };
 
-PyOSQPSolution::PyOSQPSolution(OSQPSolution& solution, OSQPInt m, OSQPInt n): _m(m), _n(n), _solution(solution) {}
+PyTinySolution::PyTinySolution(OSQPSolution& solution, OSQPInt m, OSQPInt n): _m(m), _n(n), _solution(solution) {}
 
 py::array_t<OSQPFloat> PyOSQPSolution::get_x() {
     return py::array_t<OSQPFloat>(
@@ -82,6 +81,7 @@ class PyOSQPSolver {
         py::array_t<OSQPFloat> _u;
         OSQPSolver *_solver;
 };
+
 
 PyOSQPSolver::PyOSQPSolver(
         const CSC& P,
@@ -272,6 +272,7 @@ OSQPInt PyOSQPSolver::codegen(const char *output_dir, const char *file_prefix, O
 }
 
 PYBIND11_MODULE(ext_tinympc, m) {
+// PYBIND11_MODULE(@TINYMPC_EXT_MODULE_NAME@, m) {
 
 #ifdef OSQP_USE_FLOAT
     m.attr("OSQP_USE_FLOAT") = 1;
