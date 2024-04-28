@@ -1,76 +1,52 @@
-import ctypes
-import subprocess
 import os
 import sys
+import numpy as np
 
 class TinyMPC:
-    # Problem data
-    n = 0
-    m = 0
-    N = 0
-    A = []
-    B = []
-    Q = []
-    R = []
-    x_min = []
-    x_max = []
-    u_min = []
-    u_max = []
-
-    # Options
-    rho = 1.0
-    abs_pri_tol = 1e-3
-    abs_dual_tol = 1e-3
-    max_iter = 1000
-    check_termination = 1
-
-    _gen_wrapper = 1  # always generate wrapper
-
-    lib = None
-
-
     def __init__(self):
-        pass
+        self.nx = 0 # number of states
+        self.nu = 0 # number of control inputs
+        self.N = 0 # number of knotpoints in the horizon
+        self.A = [] # state transition matrix
+        self.B = [] # control matrix
+        self.Q = [] # state cost matrix (diagonal)
+        self.R = [] # input cost matrix (digaonal)
+        self.x_min = [] # lower bounds on state
+        self.x_max = [] # upper bounds on state
+        self.u_min = [] # lower bounds on input
+        self.u_max = [] # upper bounds on input
 
+        self._tinytype = np.float32
+        
+        self._solver = None
 
-    # Load the shared library
-    def load_lib(self, lib_dir):
-        self.lib = ctypes.CDLL(lib_dir)
-        # self.lib.set_x.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.set_x0.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.set_xref.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.set_umin.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.set_umax.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.set_xmin.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.set_xmax.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.reset_dual_variables.argtypes = [ctypes.c_int]
-        # self.lib.call_tiny_solve.argtypes = [ctypes.c_int]
-        # self.lib.get_x.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-        # self.lib.get_u.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+    # # Options
+    # rho = 1.0
+    # abs_pri_tol = 1e-3
+    # abs_dual_tol = 1e-3
+    # max_iter = 1000
+    # check_termination = 1
+
+    # _gen_wrapper = 1  # always generate wrapper
+
+    # lib = None
+
 
 
     # Setup the problem data and solver options
-    def setup(
-        self,
-        n,
-        m,
-        N,
-        A,
-        B,
-        Q,
-        R,
-        x_min,
-        x_max,
-        u_min,
-        u_max,
-        rho=1.0,
-        abs_pri_tol=1e-3,
-        abs_dual_tol=1e-3,
-        max_iter=1000,
-        check_termination=1,
+    def setup(self, A, B, Q, R, N,
+        x_min=None, x_max=None, u_min=None, u_max=None,
+        rho=1.0, abs_pri_tol=1e-3, abs_dual_tol=1e-3,
+        max_iter=1000, check_termination=1,
     ):
-        self.n = n
-        self.m = m
+        assert A.shape[0] == A.shape[1]
+        assert A.shape[0] == B.shape[0]
+        assert Q.shape[0] == Q.shape[1]
+        assert A.shape[0] == Q.shape[0]
+        assert R.shape[0] == R.shape[1]
+        assert B.shape[1] == R.shape[0]
+        self.nx = A.shape[0]
+        self.nu = B.shape[1]
         self.N = N
         self.A = A
         self.B = B
@@ -113,19 +89,19 @@ class TinyMPC:
                 ctypes.c_char_p,
             ]
         self.lib.tiny_codegen.restype = ctypes.c_int
-        _A = (ctypes.c_double * (self.n * self.n))(*self.A)
-        _B = (ctypes.c_double * (self.n * self.m))(*self.B)
-        _Q = (ctypes.c_double * (self.n * self.n))(*self.Q)
-        _R = (ctypes.c_double * (self.m * self.m))(*self.R)
-        _x_min = (ctypes.c_double * (self.n * self.N))(*self.x_min)
-        _x_max = (ctypes.c_double * (self.n * self.N))(*self.x_max)
-        _u_min = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_min)
-        _u_max = (ctypes.c_double * (self.m * (self.N - 1)))(*self.u_max)
+        _A = (ctypes.c_double * (self.nx * self.nx))(*self.A)
+        _B = (ctypes.c_double * (self.nx * self.nu))(*self.B)
+        _Q = (ctypes.c_double * (self.nx * self.nx))(*self.Q)
+        _R = (ctypes.c_double * (self.nu * self.nu))(*self.R)
+        _x_min = (ctypes.c_double * (self.nx * self.N))(*self.x_min)
+        _x_max = (ctypes.c_double * (self.nx * self.N))(*self.x_max)
+        _u_min = (ctypes.c_double * (self.nu * (self.N - 1)))(*self.u_min)
+        _u_max = (ctypes.c_double * (self.nu * (self.N - 1)))(*self.u_max)
 
         # TODO: update tiny_codegen to return an error code instead of printing a bunch of stuff
         self.lib.tiny_codegen(
-            self.n,
-            self.m,
+            self.nx,
+            self.nu,
             self.N,
             _A,
             _B,
@@ -179,7 +155,7 @@ class TinyMPC:
     
     # All the functions below are wrappers for the generated code, using float instead of double
     def set_x0(self, x0, verbose=1):
-        _x0 = (ctypes.c_float * self.n)(*x0)
+        _x0 = (ctypes.c_float * self.nx)(*x0)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_x0(_x0, _verbose)
         return True
@@ -191,46 +167,46 @@ class TinyMPC:
     
     def get_u(self, u, verbose=1):
         _verbose = ctypes.c_int(verbose)
-        _u = (ctypes.c_float * (self.m * (self.N - 1)))()
+        _u = (ctypes.c_float * (self.nu * (self.N - 1)))()
         self.lib.get_u(_u, _verbose)
-        for i in range(self.m * (self.N - 1)):
+        for i in range(self.nu * (self.N - 1)):
             u[i] = _u[i]
         return True
     
     def get_x(self, x, verbose=1):
         _verbose = ctypes.c_int(verbose)
-        _x = (ctypes.c_float * (self.n * self.N))()
+        _x = (ctypes.c_float * (self.nx * self.N))()
         self.lib.get_x(_x, _verbose)
-        for i in range(self.n * self.N):
+        for i in range(self.nx * self.N):
             x[i] = _x[i]
         return True
 
     def set_xref(self, xref, verbose=1):
-        _xref = (ctypes.c_float * (self.n * self.N))(*xref)
+        _xref = (ctypes.c_float * (self.nx * self.N))(*xref)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_xref(_xref, _verbose)
         return True
     
     def set_umin(self, umin, verbose=1):
-        _umin = (ctypes.c_float * (self.m * (self.N - 1)))(*umin)
+        _umin = (ctypes.c_float * (self.nu * (self.N - 1)))(*umin)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_umin(_umin, _verbose)
         return True
     
     def set_umax(self, umax, verbose=1):
-        _umax = (ctypes.c_float * (self.m * (self.N - 1)))(*umax)
+        _umax = (ctypes.c_float * (self.nu * (self.N - 1)))(*umax)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_umax(_umax, _verbose)
         return True
     
     def set_xmin(self, xmin, verbose=1):
-        _xmin = (ctypes.c_float * (self.n * self.N))(*xmin)
+        _xmin = (ctypes.c_float * (self.nx * self.N))(*xmin)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_xmin(_xmin, _verbose)
         return True
     
     def set_xmax(self, xmax, verbose=1):
-        _xmax = (ctypes.c_float * (self.n * self.N))(*xmax)
+        _xmax = (ctypes.c_float * (self.nx * self.N))(*xmax)
         _verbose = ctypes.c_int(verbose)
         self.lib.set_xmax(_xmax, _verbose)
         return True
