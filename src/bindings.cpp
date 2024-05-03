@@ -1,6 +1,7 @@
 #include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/eigen.h>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -8,53 +9,10 @@ using namespace pybind11::literals;
 #include "tinympc/admm.hpp"
 
 
-class PyTinySolution {
+class PyTinySolver {
     public:
-        PyTinySolution(TinySolution&, OSQPInt, OSQPInt);
-        py::array_t<OSQPFloat> get_x();
-        py::array_t<OSQPFloat> get_y();
-        py::array_t<OSQPFloat> get_prim_inf_cert();
-        py::array_t<OSQPFloat> get_dual_inf_cert();
-    private:
-        OSQPInt _m;
-        OSQPInt _n;
-        OSQPSolution& _solution;
-};
-
-PyTinySolution::PyTinySolution(OSQPSolution& solution, OSQPInt m, OSQPInt n): _m(m), _n(n), _solution(solution) {}
-
-py::array_t<OSQPFloat> PyOSQPSolution::get_x() {
-    return py::array_t<OSQPFloat>(
-            { this->_n },
-            { sizeof(OSQPFloat) },
-            this->_solution.x);
-}
-
-py::array_t<OSQPFloat> PyOSQPSolution::get_y() {
-    return py::array_t<OSQPFloat>(
-            { this->_m },
-            { sizeof(OSQPFloat) },
-            this->_solution.y);
-}
-
-py::array_t<OSQPFloat> PyOSQPSolution::get_prim_inf_cert() {
-    return py::array_t<OSQPFloat>(
-            { this->_m },
-            { sizeof(OSQPFloat) },
-            this->_solution.prim_inf_cert);
-}
-
-py::array_t<OSQPFloat> PyOSQPSolution::get_dual_inf_cert() {
-    return py::array_t<OSQPFloat>(
-            { this->_n },
-            { sizeof(OSQPFloat) },
-            this->_solution.dual_inf_cert);
-}
-
-class PyOSQPSolver {
-    public:
-        PyOSQPSolver(const CSC&, const py::array_t<OSQPFloat>, const CSC&, const py::array_t<OSQPFloat>, const py::array_t<OSQPFloat>, OSQPInt, OSQPInt, const OSQPSettings*);
-        ~PyOSQPSolver();
+        PyTinySolver(const CSC&, const py::array_t<OSQPFloat>, const CSC&, const py::array_t<OSQPFloat>, const py::array_t<OSQPFloat>, OSQPInt, OSQPInt, const OSQPSettings*);
+        ~PyTinySolver();
 
         OSQPSettings* get_settings();
         PyOSQPSolution& get_solution();
@@ -62,13 +20,8 @@ class PyOSQPSolver {
 
         OSQPInt update_settings(const OSQPSettings&);
         OSQPInt update_rho(OSQPFloat);
-        OSQPInt update_data_vec(py::object, py::object, py::object);
-        OSQPInt update_data_mat(py::object, py::object, py::object, py::object);
         OSQPInt warm_start(py::object, py::object);
         OSQPInt solve();
-        OSQPInt adjoint_derivative_compute(py::object, py::object, py::object);
-        OSQPInt adjoint_derivative_get_mat(CSC&, CSC&);
-        OSQPInt adjoint_derivative_get_vec(py::object, py::object, py::object);
 
         OSQPInt codegen(const char*, const char*, OSQPCodegenDefines&);
     private:
@@ -83,8 +36,12 @@ class PyOSQPSolver {
 };
 
 
-PyOSQPSolver::PyOSQPSolver(
-        const CSC& P,
+
+.def(py::init<const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const int, const int, const int, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>>(),
+        "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert())
+        
+PyTinySolver::PyTinySolver(
+        const Eigen::Ref<tinyMatrix> P,
         const py::array_t<OSQPFloat> q,
         const CSC& A,
         const py::array_t<OSQPFloat> l,
@@ -105,24 +62,24 @@ PyOSQPSolver::PyOSQPSolver(
     }
 }
 
-PyOSQPSolver::~PyOSQPSolver() {
+PyTinySolver::~PyTinySolver() {
     osqp_cleanup(this->_solver);
 }
 
-OSQPSettings* PyOSQPSolver::get_settings() {
+OSQPSettings* PyTinySolver::get_settings() {
     return this->_solver->settings;
 }
 
-PyOSQPSolution& PyOSQPSolver::get_solution() {
+PyOSQPSolution& PyTinySolver::get_solution() {
     PyOSQPSolution* solution = new PyOSQPSolution(*this->_solver->solution, this->m, this->n);
     return *solution;
 }
 
-OSQPInfo* PyOSQPSolver::get_info() {
+OSQPInfo* PyTinySolver::get_info() {
     return this->_solver->info;
 }
 
-OSQPInt PyOSQPSolver::warm_start(py::object x, py::object y) {
+OSQPInt PyTinySolver::warm_start(py::object x, py::object y) {
     OSQPFloat* _x;
     OSQPFloat* _y;
 
@@ -140,22 +97,22 @@ OSQPInt PyOSQPSolver::warm_start(py::object x, py::object y) {
     return osqp_warm_start(this->_solver, _x, _y);
 }
 
-OSQPInt PyOSQPSolver::solve() {
+OSQPInt PyTinySolver::solve() {
     py::gil_scoped_release release;
     OSQPInt results = osqp_solve(this->_solver);
     py::gil_scoped_acquire acquire;
     return results;
 }
 
-OSQPInt PyOSQPSolver::update_settings(const OSQPSettings& new_settings) {
+OSQPInt PyTinySolver::update_settings(const OSQPSettings& new_settings) {
     return osqp_update_settings(this->_solver, &new_settings);
 }
 
-OSQPInt PyOSQPSolver::update_rho(OSQPFloat rho_new) {
+OSQPInt PyTinySolver::update_rho(OSQPFloat rho_new) {
     return osqp_update_rho(this->_solver, rho_new);
 }
 
-OSQPInt PyOSQPSolver::update_data_vec(py::object q, py::object l, py::object u) {
+OSQPInt PyTinySolver::update_data_vec(py::object q, py::object l, py::object u) {
     OSQPFloat* _q;
     OSQPFloat* _l;
     OSQPFloat* _u;
@@ -179,7 +136,7 @@ OSQPInt PyOSQPSolver::update_data_vec(py::object q, py::object l, py::object u) 
     return osqp_update_data_vec(this->_solver, _q, _l, _u);
 }
 
-OSQPInt PyOSQPSolver::update_data_mat(py::object P_x, py::object P_i, py::object A_x, py::object A_i) {
+OSQPInt PyTinySolver::update_data_mat(py::object P_x, py::object P_i, py::object A_x, py::object A_i) {
     OSQPFloat* _P_x;
     OSQPInt* _P_i;
     OSQPInt _P_n = 0;
@@ -222,166 +179,38 @@ OSQPInt PyOSQPSolver::update_data_mat(py::object P_x, py::object P_i, py::object
     return osqp_update_data_mat(this->_solver, _P_x, _P_i, _P_n, _A_x, _A_i, _A_n);
 }
 
-OSQPInt PyOSQPSolver::adjoint_derivative_compute(const py::object dx, const py::object dy_l, const py::object dy_u) {
-    OSQPFloat* _dx;
-    OSQPFloat* _dy_l;
-    OSQPFloat* _dy_u;
 
-    if (dx.is_none()) {
-        _dx = NULL;
-    } else {
-        auto _dx_array = py::array_t<OSQPFloat>(dx);
-        _dx = (OSQPFloat *)_dx_array.data();
-    }
-
-    if (dy_l.is_none()) {
-        _dy_l = NULL;
-    } else {
-        auto _dy_l_array = py::array_t<OSQPFloat>(dy_l);
-        _dy_l = (OSQPFloat *)_dy_l_array.data();
-    }
-
-    if (dy_u.is_none()) {
-        _dy_u = NULL;
-    } else {
-        auto _dy_u_array = py::array_t<OSQPFloat>(dy_u);
-        _dy_u = (OSQPFloat *)_dy_u_array.data();
-    }
-
-    return osqp_adjoint_derivative_compute(this->_solver, _dx, _dy_l, _dy_u);
-
-}
-
-OSQPInt PyOSQPSolver::adjoint_derivative_get_mat(CSC& dP, CSC& dA) {
-    OSQPCscMatrix& _dP = dP.getcsc();
-    OSQPCscMatrix& _dA = dA.getcsc();
-
-    return osqp_adjoint_derivative_get_mat(this->_solver, &_dP, &_dA);
-}
-
-OSQPInt PyOSQPSolver::adjoint_derivative_get_vec(py::object dq, py::object dl, py::object du) {
-    OSQPFloat* _dq = (OSQPFloat *)py::array_t<OSQPFloat>(dq).data();
-    OSQPFloat* _dl = (OSQPFloat *)py::array_t<OSQPFloat>(dl).data();
-    OSQPFloat* _du = (OSQPFloat *)py::array_t<OSQPFloat>(du).data();
-
-    return osqp_adjoint_derivative_get_vec(this->_solver, _dq, _dl, _du);
-}
-
-OSQPInt PyOSQPSolver::codegen(const char *output_dir, const char *file_prefix, OSQPCodegenDefines& defines) {
-    return osqp_codegen(this->_solver, output_dir, file_prefix, &defines);
-}
+// OSQPInt PyTinySolver::codegen(const char *output_dir, const char *file_prefix, OSQPCodegenDefines& defines) {
+//     return osqp_codegen(this->_solver, output_dir, file_prefix, &defines);
+// }
 
 PYBIND11_MODULE(ext_tinympc, m) {
-// PYBIND11_MODULE(@TINYMPC_EXT_MODULE_NAME@, m) {
+// // PYBIND11_MODULE(@TINYMPC_EXT_MODULE_NAME@, m) {
 
-#ifdef OSQP_USE_FLOAT
-    m.attr("OSQP_USE_FLOAT") = 1;
-#else
-    m.attr("OSQP_USE_FLOAT") = 0;
-#endif
-
-#ifdef OSQP_USE_LONG
-    m.attr("OSQP_USE_LONG") = 1;
-#else
-    m.attr("OSQP_USE_LONG") = 0;
-#endif
-
-    // Any constants that we wish to make directly accessible in the extension module
-    m.attr("OSQP_INFTY") = OSQP_INFTY;
-
-    // Enum values that are directly accessible
-    py::enum_<osqp_linsys_solver_type>(m, "osqp_linsys_solver_type", py::module_local())
-    .value("OSQP_DIRECT_SOLVER", OSQP_DIRECT_SOLVER)
-    .value("OSQP_INDIRECT_SOLVER", OSQP_INDIRECT_SOLVER)
-    .export_values();
-
-    // Enum values that are directly accessible
-    py::enum_<osqp_status_type>(m, "osqp_status_type", py::module_local())
-    .value("OSQP_SOLVED", OSQP_SOLVED)
-    .value("OSQP_SOLVED_INACCURATE", OSQP_SOLVED_INACCURATE)
-    .value("OSQP_PRIMAL_INFEASIBLE", OSQP_PRIMAL_INFEASIBLE)
-    .value("OSQP_PRIMAL_INFEASIBLE_INACCURATE", OSQP_PRIMAL_INFEASIBLE_INACCURATE)
-    .value("OSQP_DUAL_INFEASIBLE", OSQP_DUAL_INFEASIBLE)
-    .value("OSQP_DUAL_INFEASIBLE_INACCURATE", OSQP_DUAL_INFEASIBLE_INACCURATE)
-    .value("OSQP_MAX_ITER_REACHED", OSQP_MAX_ITER_REACHED)
-    .value("OSQP_TIME_LIMIT_REACHED", OSQP_TIME_LIMIT_REACHED)
-    .value("OSQP_NON_CVX", OSQP_NON_CVX)
-    .value("OSQP_SIGINT", OSQP_SIGINT)
-    .value("OSQP_UNSOLVED", OSQP_UNSOLVED)
-    .export_values();
-
-    // Preconditioner Type
-    py::enum_<osqp_precond_type>(m, "osqp_precond_type", py::module_local())
-    .value("OSQP_NO_PRECONDITIONER", OSQP_NO_PRECONDITIONER)
-    .value("OSQP_DIAGONAL_PRECONDITIONER", OSQP_DIAGONAL_PRECONDITIONER)
-    .export_values();
-
-    // CSC
-    py::class_<CSC>(m, "CSC", py::module_local())
-    .def(py::init<py::object>())
-    .def_readonly("m", &CSC::m)
-    .def_readonly("n", &CSC::n)
-    .def_readonly("p", &CSC::_p)
-    .def_readonly("i", &CSC::_i)
-    .def_readonly("x", &CSC::_x)
-    .def_readonly("nzmax", &CSC::nzmax)
-    .def_readonly("nz", &CSC::nz);
-
-    // Capabilities
-    py::enum_<osqp_capabilities_type>(m, "osqp_capabilities_type", py::module_local())
-    .value("OSQP_CAPABILITY_DIRECT_SOLVER", OSQP_CAPABILITY_DIRECT_SOLVER)
-    .value("OSQP_CAPABILITY_INDIRECT_SOLVER", OSQP_CAPABILITY_INDIRECT_SOLVER)
-    .value("OSQP_CAPABILITY_CODEGEN", OSQP_CAPABILITY_CODEGEN)
-    .value("OSQP_CAPABILITY_UPDATE_MATRICES", OSQP_CAPABILITY_UPDATE_MATRICES)
-    .value("OSQP_CAPABILITY_DERIVATIVES", OSQP_CAPABILITY_DERIVATIVES);
-
-    m.def("osqp_capabilities", &osqp_capabilities);
+    // Cache
+    py::class_<TinyCache>(m, "TinyCache", py::module_local())
+    .def(py::init([]() {
+        return new TinyCache();
+    }))
+    .def_readwrite("rho", &TinyCache::rho)
+    .def_readwrite("Kinf", &TinyCache:Kinf)
+    .def_readwrite("Pinf", &TinyCache:Pinf)
+    .def_readwrite("Quu_inv", &TinyCache:Quu_inv)
+    .def_readwrite("AmBKt", &TinyCache:AmBKt)
 
     // Settings
-    py::class_<OSQPSettings>(m, "OSQPSettings", py::module_local())
+    py::class_<TinySettings>(m, "TinySettings", py::module_local())
     .def(py::init([]() {
-        return new OSQPSettings();
+        return new TinySettings();
     }))
-    .def_readwrite("device", &OSQPSettings::device)
-    .def_readwrite("linsys_solver", &OSQPSettings::linsys_solver)
-    .def_readwrite("verbose", &OSQPSettings::verbose)
-    .def_readwrite("warm_starting", &OSQPSettings::warm_starting)
-    .def_readwrite("scaling", &OSQPSettings::scaling)
-    .def_readwrite("polishing", &OSQPSettings::polishing)
+    .def_readwrite("abs_pri_tol", &TinySettings::abs_pri_tol)
+    .def_readwrite("abs_dua_tol", &TinySettings::abs_dua_tol)
+    .def_readwrite("max_iter", &TinySettings::max_iter)
+    .def_readwrite("check_termination", &TinySettings::check_termination)
+    .def_readwrite("en_state_bound", &TinySettings::en_state_bound)
+    .def_readwrite("en_input_bound", &TinySettings::en_input_bound)
 
-    // Settings - ADMM
-    .def_readwrite("rho", &OSQPSettings::rho)
-    .def_readwrite("rho_is_vec", &OSQPSettings::rho_is_vec)
-    .def_readwrite("sigma", &OSQPSettings::sigma)
-    .def_readwrite("alpha", &OSQPSettings::alpha)
-
-    // Settings - CG
-    .def_readwrite("cg_max_iter", &OSQPSettings::cg_max_iter)
-    .def_readwrite("cg_tol_reduction", &OSQPSettings::cg_tol_reduction)
-    .def_readwrite("cg_tol_fraction", &OSQPSettings::cg_tol_fraction)
-    .def_readwrite("cg_precond", &OSQPSettings::cg_precond)
-
-    // Settings - Adaptive rho
-    .def_readwrite("adaptive_rho", &OSQPSettings::adaptive_rho)
-    .def_readwrite("adaptive_rho_interval", &OSQPSettings::adaptive_rho_interval)
-    .def_readwrite("adaptive_rho_fraction", &OSQPSettings::adaptive_rho_fraction)
-    .def_readwrite("adaptive_rho_tolerance", &OSQPSettings::adaptive_rho_tolerance)
-
-    // Settings - Termination parameters
-    .def_readwrite("max_iter", &OSQPSettings::max_iter)
-    .def_readwrite("eps_abs", &OSQPSettings::eps_abs)
-    .def_readwrite("eps_rel", &OSQPSettings::eps_rel)
-    .def_readwrite("eps_prim_inf", &OSQPSettings::eps_prim_inf)
-    .def_readwrite("eps_dual_inf", &OSQPSettings::eps_dual_inf)
-    .def_readwrite("scaled_termination", &OSQPSettings::scaled_termination)
-    .def_readwrite("check_termination", &OSQPSettings::check_termination)
-    .def_readwrite("time_limit", &OSQPSettings::time_limit)
-
-    // Settings - Polishing
-    .def_readwrite("delta", &OSQPSettings::delta)
-    .def_readwrite("polish_refine_iter", &OSQPSettings::polish_refine_iter);
-
-    m.def("osqp_set_default_settings", &osqp_set_default_settings);
+    m.def("tiny_set_default_settings", &tiny_set_default_settings);
 
     // Codegen Defines
     py::class_<OSQPCodegenDefines>(m, "OSQPCodegenDefines", py::module_local())
@@ -423,23 +252,25 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def_readonly("run_time", &OSQPInfo::run_time);
 
     // Solver
-    py::class_<PyOSQPSolver>(m, "OSQPSolver", py::module_local())
-    .def(py::init<const CSC&, const py::array_t<OSQPFloat>, const CSC&, const py::array_t<OSQPFloat>, const py::array_t<OSQPFloat>, OSQPInt, OSQPInt, const OSQPSettings*>(),
-            "P"_a, "q"_a.noconvert(), "A"_a, "l"_a.noconvert(), "u"_a.noconvert(), "m"_a, "n"_a, "settings"_a)
-    .def_property_readonly("solution", &PyOSQPSolver::get_solution, py::return_value_policy::reference)
-    .def_property_readonly("info", &PyOSQPSolver::get_info)
-    .def("warm_start", &PyOSQPSolver::warm_start, "x"_a.none(true), "y"_a.none(true))
-    .def("solve", &PyOSQPSolver::solve)
-    .def("update_data_vec", &PyOSQPSolver::update_data_vec, "q"_a.none(true), "l"_a.none(true), "u"_a.none(true))
-    .def("update_data_mat", &PyOSQPSolver::update_data_mat, "P_x"_a.none(true), "P_i"_a.none(true), "A_x"_a.none(true), "A_i"_a.none(true))
-    .def("update_settings", &PyOSQPSolver::update_settings)
-    .def("update_rho", &PyOSQPSolver::update_rho)
-    .def("get_settings", &PyOSQPSolver::get_settings, py::return_value_policy::reference)
+    py::class_<PyTinySolver>(m, "TinySolver", py::module_local())
+    .def(py::init<const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const int, const int, const int, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>>(),
+            "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert())
+    // .def(py::init<const CSC&, const py::array_t<OSQPFloat>, const CSC&, const py::array_t<OSQPFloat>, const py::array_t<OSQPFloat>, OSQPInt, OSQPInt, const OSQPSettings*>(),
+    //         "P"_a, "q"_a.noconvert(), "A"_a, "l"_a.noconvert(), "u"_a.noconvert(), "m"_a, "n"_a, "settings"_a)
+    .def_property_readonly("solution", &PyTinySolver::get_solution, py::return_value_policy::reference)
+    .def_property_readonly("info", &PyTinySolver::get_info)
+    .def("warm_start", &PyTinySolver::warm_start, "x"_a.none(true), "y"_a.none(true))
+    .def("solve", &PyTinySolver::solve)
+    .def("update_data_vec", &PyTinySolver::update_data_vec, "q"_a.none(true), "l"_a.none(true), "u"_a.none(true))
+    .def("update_data_mat", &PyTinySolver::update_data_mat, "P_x"_a.none(true), "P_i"_a.none(true), "A_x"_a.none(true), "A_i"_a.none(true))
+    .def("update_settings", &PyTinySolver::update_settings)
+    .def("update_rho", &PyTinySolver::update_rho)
+    .def("get_settings", &PyTinySolver::get_settings, py::return_value_policy::reference)
 
-    .def("adjoint_derivative_compute", &PyOSQPSolver::adjoint_derivative_compute, "dx"_a.none(true), "dy_l"_a.none(true), "dy_u"_a.none(true))
-    .def("adjoint_derivative_get_mat", &PyOSQPSolver::adjoint_derivative_get_mat, "dP"_a, "dA"_a)
-    .def("adjoint_derivative_get_vec", &PyOSQPSolver::adjoint_derivative_get_vec, "dq"_a, "dl"_a, "du"_a)
+    .def("adjoint_derivative_compute", &PyTinySolver::adjoint_derivative_compute, "dx"_a.none(true), "dy_l"_a.none(true), "dy_u"_a.none(true))
+    .def("adjoint_derivative_get_mat", &PyTinySolver::adjoint_derivative_get_mat, "dP"_a, "dA"_a)
+    .def("adjoint_derivative_get_vec", &PyTinySolver::adjoint_derivative_get_vec, "dq"_a, "dl"_a, "du"_a)
 
-    .def("codegen", &PyOSQPSolver::codegen, "output_dir"_a, "file_prefix"_a, "defines"_a);
+    .def("codegen", &PyTinySolver::codegen, "output_dir"_a, "file_prefix"_a, "defines"_a);
 
 }

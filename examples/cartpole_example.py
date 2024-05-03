@@ -1,4 +1,4 @@
-import tinympc
+import src.tinympc.interface as tinympc
 import numpy as np
 
 A = np.array([[1.0, 0.01, 0.0, 0.0],

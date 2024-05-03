@@ -1,6 +1,7 @@
 import os
 import sys
 import numpy as np
+import importlib
 
 class TinyMPC:
     def __init__(self):
@@ -16,54 +17,68 @@ class TinyMPC:
         self.u_min = [] # lower bounds on input
         self.u_max = [] # upper bounds on input
 
+        # Import tinympc pybind extension
+        self.ext = importlib.import_module("tinympc.ext_tinympc")
+
         self._tinytype = np.float32
+        self._infty = 1e17
         
         self._solver = None
+        self._settings = None
+    
+    
+    def update_settings(self, **kwargs):
+        assert self._settings is not None
+        
+        if 'abs_pri_tol' in kwargs:
+            self._settings.abs_pri_tol = kwargs.pop('abs_pri_tol')
+        if 'abs_dua_tol' in kwargs:
+            self._settings.abs_dua_tol = kwargs.pop('abs_dua_tol')
+        if 'max_iter' in kwargs:
+            self._settings.max_iter = kwargs.pop('max_iter')
+        if 'check_termination' in kwargs:
+            self._settings.check_termination = kwargs.pop('check_termination')
+        if 'en_state_bound' in kwargs:
+            self._settings.en_state_bound = kwargs.pop('en_state_bound')
+        if 'en_input_bound' in kwargs:
+            self._settings.en_input_bound = kwargs.pop('en_input_bound')
 
-    # # Options
-    # rho = 1.0
-    # abs_pri_tol = 1e-3
-    # abs_dual_tol = 1e-3
-    # max_iter = 1000
-    # check_termination = 1
-
-    # _gen_wrapper = 1  # always generate wrapper
-
-    # lib = None
-
-
+        if self._solver is not None:
+            self._solver.update_settings(self._settings)        
+        
+        
 
     # Setup the problem data and solver options
     def setup(self, A, B, Q, R, N,
-        x_min=None, x_max=None, u_min=None, u_max=None,
-        rho=1.0, abs_pri_tol=1e-3, abs_dual_tol=1e-3,
-        max_iter=1000, check_termination=1,
-    ):
+        x_min=None, x_max=None, u_min=None, u_max=None, **settings):
         assert A.shape[0] == A.shape[1]
         assert A.shape[0] == B.shape[0]
         assert Q.shape[0] == Q.shape[1]
         assert A.shape[0] == Q.shape[0]
         assert R.shape[0] == R.shape[1]
         assert B.shape[1] == R.shape[0]
+        self.A = np.array(A, order="F")
+        self.B = np.array(B, order="F")
+        self.Q = np.array(Q, order="F")
+        self.R = np.array(R, order="F")
         self.nx = A.shape[0]
         self.nu = B.shape[1]
         self.N = N
-        self.A = A
-        self.B = B
-        self.Q = Q
-        self.R = R
-        self.x_min = x_min
-        self.x_max = x_max
-        self.u_min = u_min
-        self.u_max = u_max
-        self.rho = rho
-        self.abs_pri_tol = abs_pri_tol
-        self.abs_dual_tol = abs_dual_tol
-        self.max_iter = max_iter
-        self.check_termination = check_termination
-        return True
-
-
+        self.x_min = x_min if x_min is not None else -self._infty
+        self.x_max = x_max if x_max is not None else self._infty
+        self.u_min = u_min if u_min is not None else -self._infty
+        self.u_max = u_max if u_max is not None else self._infty
+        
+        self._settings = self.ext.TinySettings()
+        self.ext.tiny_set_default_settings(self._settings)
+        self.update_settings(**settings)
+        
+        self._solver = self.ext.TinySolver(self.A, self.B, self.Q, self.R,
+                                           self.nx, self.nu, self.N,
+                                           self.x_min, self.x_max, self.u_min, self.u_max,
+                                           self._settings
+        )
+        
     # If this function fails, you are already using the generated code 
     # This uses double instead of float
     def tiny_codegen(self, tinympc_dir, output_dir):

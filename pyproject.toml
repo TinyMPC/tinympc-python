@@ -27,6 +27,7 @@ dependencies = [
 Homepage = "https://tinympc.org"
 
 [tool.scikit-build]
+install.components = ["python"]
 wheel.install-dir = "tinympc"
 
 [tool.scikit-build.cmake.define]

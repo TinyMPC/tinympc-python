@@ -26,8 +26,8 @@ FetchContent_MakeAvailable(tinympc)
 
 # configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/bindings.cpp.in
 #                ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings.cpp)
-pybind11_add_module(${TINYMPC_EXT_MODULE_NAME} src/bindings.cpp)
-install(TARGETS ${TINYMPC_EXT_MODULE_NAME} DESTINATION . COMPONENT python)
+pybind11_add_module(ext_tinympc src/bindings.cpp)
+install(TARGETS ext_tinympc DESTINATION . COMPONENT python)
 
 
 target_link_libraries(ext_tinympc PUBLIC pybind11::module tinympcstatic)

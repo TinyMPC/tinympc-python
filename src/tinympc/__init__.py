@@ -1,1 +1,1 @@
-from tinympc.interface import TinyMPC
+from .interface import TinyMPC
