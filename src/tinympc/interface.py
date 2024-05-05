@@ -40,10 +40,9 @@ class TinyMPC:
         if 'check_termination' in kwargs:
             self.settings.check_termination = kwargs.pop('check_termination')
         if 'en_state_bound' in kwargs:
-            self.settings.en_state_bound = kwargs.pop('en_state_bound')
+            self.settings.en_state_bound = 1 if kwargs.pop('en_state_bound') else 0
         if 'en_input_bound' in kwargs:
-            self.settings.en_input_bound = kwargs.pop('en_input_bound')
-
+            self.settings.en_input_bound = 1 if kwargs.pop('en_input_bound') else 0
         if self._solver is not None:
             self._solver.update_settings(self.settings)        
         
@@ -52,13 +51,32 @@ class TinyMPC:
     # Setup the problem data and solver options
     def setup(self, A, B, Q, R, N, rho=1,
         x_min=None, x_max=None, u_min=None, u_max=None, **settings):
+        """Instantiate necessary algorithm variables and parameters
+        
+        :param A (np.ndarray): State transition matrix of the linear system, size nx x nx
+        :param B (np.ndarray): Input matrix of the linear system, size nx x nu
+        :param Q (np.ndarray): Stage cost for state, must be diagonal and positive semi-definite, size nx x nx
+        :param R (np.ndarray): Stage cost for input, must be diagonal and positive definite, size nu x nu
+        :param rho (int, optional): Penalty term used in ADMM, default 1
+        :param x_min (list[float] or None, optional): Lower bound state constraints of the same length as nx, default None
+        :param x_max (list[float] or None, optional): Upper bound state constraints of the same length as nx, default None
+        :param u_min (list[float] or None, optional): Lower bound input constraints of the same length as nu, default None
+        :param u_max (list[float] or None, optional): Upper bound input constraints of the same length as nu, default None
+        :params settings: Dictionary of optional settings
+            :param abs_pri_tol (float): Solution tolerance for primal variables
+            :param abs_dua_tol (float): Solution tolerance for dual variables
+            :param max_iter (int): Maximum number of iterations before returning
+            :param check_termination (int): Number of iterations to skip before checking termination
+            :param en_state_bound (bool): Enable or disable bound constraints on state
+            :param en_input_bound (bool): Enable or disable bound constraints on input
+        """
         assert A.shape[0] == A.shape[1]
         assert A.shape[0] == B.shape[0]
         assert Q.shape[0] == Q.shape[1]
         assert A.shape[0] == Q.shape[0]
         assert R.shape[0] == R.shape[1]
         assert B.shape[1] == R.shape[0]
-        self.A = np.array(A, order="F")
+        self.A = np.array(A, order="F") # order=F for compatibility with eigen's column-major storage when using pybind
         self.B = np.array(B, order="F")
         self.Q = np.array(Q, order="F")
         self.R = np.array(R, order="F")
@@ -71,11 +89,11 @@ class TinyMPC:
         self.u_min = u_min if u_min is not None else -self._infty
         self.u_max = u_max if u_max is not None else self._infty
         
-        self.settings = self.ext.TinySettings() # local settings
-        self.ext.tiny_set_default_settings(self.settings)
-        self.update_settings(**settings)
+        self.settings = self.ext.TinySettings() # instantiate local settings (settings known only to the python interface)
+        self.ext.tiny_set_default_settings(self.settings) # set local settings to default defined by C++ implementation
+        self.update_settings(**settings) # change local settings based on arguments available to the interface
         
-        self._solver = self.ext.TinySolver(self.A, self.B, self.Q, self.R,
+        self._solver = self.ext.TinySolver(self.A, self.B, self.Q, self.R, self.rho
                                            self.nx, self.nu, self.N,
                                            self.x_min, self.x_max, self.u_min, self.u_max,
                                            self.settings
