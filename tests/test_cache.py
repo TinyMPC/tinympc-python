@@ -14,8 +14,6 @@ R = np.diag([1.0])
 
 N = 2
 
-prob = tinympc.TinyMPC()
+intf = tinympc.TinyMPC()
 
-prob.setup(A, B, Q, R, N)
-
-solution = prob.solve()
+intf.setup(A, B, Q, R, N)

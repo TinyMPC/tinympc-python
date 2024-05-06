@@ -11,39 +11,56 @@ using namespace pybind11::literals;
 
 class PyTinySolver {
     public:
-        PyTinySolver(const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, // A, B
-                     const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, // Q, R
-                     const float, const int, const int, const int,               // rho, nx, nu, N
-                     const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, // x_min, x_max
-                     const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, // u_min, u_max
-                     const TinySettings*); // settings
-        ~PyTinySolver();
+        PyTinySolver(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // A, B
+                     Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // Q, R
+                     float, int, int, int,               // rho, nx, nu, N
+                     Eigen::Ref<tinyVector>, Eigen::Ref<tinyVector>, // x_min, x_max
+                     Eigen::Ref<tinyVector>, Eigen::Ref<tinyVector>, // u_min, u_max
+                     TinySettings*); // settings
+        int solve();
+        TinySolution* get_solution();
     private:
         TinySolver *_solver;
 };
 
 PyTinySolver::PyTinySolver(
-        const Eigen::Ref<tinyMatrix> A,
-        const Eigen::Ref<tinyMatrix> B,
-        const Eigen::Ref<tinyMatrix> Q,
-        const Eigen::Ref<tinyMatrix> R,
-        const float rho,
-        const int nx,
-        const int nu,
-        const int N,
-        const Eigen::Ref<tinyMatrix> x_min,
-        const Eigen::Ref<tinyMatrix> x_max,
-        const Eigen::Ref<tinyMatrix> u_min,
-        const Eigen::Ref<tinyMatrix> u_max,
-        const TinySettings *settings) {
-    this->_solver = new TinySolver();
-
-    int status = tiny_precompute_and_set_cache(this->_solver->cache, A, B, Q, R, nx, nu, rho);
-
+        Eigen::Ref<tinyMatrix> A,
+        Eigen::Ref<tinyMatrix> B,
+        Eigen::Ref<tinyMatrix> Q,
+        Eigen::Ref<tinyMatrix> R,
+        float rho,
+        int nx,
+        int nu,
+        int N,
+        Eigen::Ref<tinyVector> x_min,
+        Eigen::Ref<tinyVector> x_max,
+        Eigen::Ref<tinyVector> u_min,
+        Eigen::Ref<tinyVector> u_max,
+        TinySettings *settings) {
+    TinySolution *solution = new TinySolution();
+    TinyCache *cache = new TinyCache();
+    TinyWorkspace *work = new TinyWorkspace();
+    int status = tiny_setup(cache, work, solution, A, B, Q, R, rho, nx, nu, N, x_min, x_max, u_min, u_max, settings);
     if (status) {
-        std::string message = "Error when precomputing cache";
-        throw py::value_error(message);
+        std::string message = "Error during setup";
+        throw py::value_error(message); 
     }
+    this->_solver = new TinySolver();
+    this->_solver->solution = solution;
+    this->_solver->settings = settings;
+    this->_solver->cache = cache;
+    this->_solver->work = work;
+}
+
+int PyTinySolver::solve() {
+    py::gil_scoped_release release;
+    int status = tiny_solve(this->_solver);
+    py::gil_scoped_acquire acquire;
+    return status;
+}
+
+TinySolution* PyTinySolver::get_solution() {
+    return this->_solver->solution;
 }
 
 PYBIND11_MODULE(ext_tinympc, m) {
@@ -63,7 +80,7 @@ PYBIND11_MODULE(ext_tinympc, m) {
     // Settings
     py::class_<TinySettings>(m, "TinySettings", py::module_local())
     .def(py::init([]() {
-        return new TinySettings();
+        return new TinySettings(); // only necessary if creating a TinySettings object inside python interface
     }))
     .def_readwrite("abs_pri_tol", &TinySettings::abs_pri_tol)
     .def_readwrite("abs_dua_tol", &TinySettings::abs_dua_tol)
@@ -76,7 +93,9 @@ PYBIND11_MODULE(ext_tinympc, m) {
 
     // Solver
     py::class_<PyTinySolver>(m, "TinySolver", py::module_local())
-    .def(py::init<const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const float, const int, const int, const int, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const Eigen::Ref<tinyMatrix>, const TinySettings*>(),
-            "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert(), "settings"_a);
+    .def(py::init<Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, float, int, int, int, Eigen::Ref<tinyVector>, Eigen::Ref<tinyVector>, Eigen::Ref<tinyVector>, Eigen::Ref<tinyVector>, TinySettings*>(),
+            "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert(), "settings"_a)
+    .def_property_readonly("solution", &PyTinySolver::get_solution)
+    .def("solve", &PyTinySolver::solve);
 
 }

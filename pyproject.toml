@@ -3,11 +3,11 @@ requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "tinympc-sam-schoedel"
+name = "tinympc"
 version = "0.0.14"
 authors = [
-  { name="Khai Nguyen", email="khai.nx1201@gmail.com" },
   { name="Sam Schoedel", email="seschoedel@gmail.com" },
+  { name="Khai Nguyen", email="khai.nx1201@gmail.com" },
 ]
 description = "Python wrapper for TinyMPC"
 readme = "README.md"
