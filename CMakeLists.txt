@@ -2,11 +2,7 @@ cmake_minimum_required(VERSION 3.15...3.26)
 project(ext)
 
 set(PYTHON "ON")
-# set(OSQP_BUILD_UNITTESTS "OFF")
-# set(OSQP_USE_LONG "OFF")
-# set(OSQP_CUSTOM_PRINTING "${CMAKE_CURRENT_SOURCE_DIR}/cmake/printing.h")
-# set(OSQP_CUSTOM_MEMORY "${CMAKE_CURRENT_SOURCE_DIR}/cmake/memory.h")
-# set(OSQP_CODEGEN_INSTALL_DIR "codegen/codegen_src" CACHE PATH "" FORCE)
+set(TINY_CODEGEN_INSTALL_DIR "codegen/codegen_src" CACHE PATH "" FORCE)
 
 include(FetchContent)
 

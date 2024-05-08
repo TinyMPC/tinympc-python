@@ -28,7 +28,7 @@ dependencies = [
 Homepage = "https://tinympc.org"
 
 [tool.scikit-build]
-install.components = ["python"]
+install.components = ["python", "codegen"]
 wheel.install-dir = "tinympc"
 
 [tool.scikit-build.cmake.define]
