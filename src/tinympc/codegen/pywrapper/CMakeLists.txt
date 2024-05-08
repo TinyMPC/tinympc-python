@@ -5,15 +5,16 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
 
 file(GLOB TINY_SOURCES tinympc/*.cpp)
 
+# Create tinympc library
 add_library(tinympcstatic STATIC ${TINY_SOURCES})
-
 target_include_directories(tinympcstatic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(tinympcstatic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# Create example main executable
 add_executable(tiny_codegen_example src/tiny_main.cpp src/tiny_data.cpp)
 target_link_libraries(tiny_codegen_example LINK_PUBLIC tinympcstatic)
 
-
+# Create python module
 include(FetchContent)
 FetchContent_Declare(
   pybind11
