@@ -1,5 +1,4 @@
 import os
-import sys
 import numpy as np
 import importlib
 
@@ -174,3 +173,13 @@ class TinyMPC:
             print("Problem not solved after {} iterations".format(solution.iter))
 
         return {"states_all": solution.x.T, "controls_all": solution.u.T, "controls": solution.u[:,0]}
+    
+    def codegen(self, codegen_folder):
+        codegen_folder_abs = os.path.abspath(codegen_folder)
+
+        os.makedirs(codegen_folder_abs, exist_ok=True)
+
+        if not codegen_folder_abs.endswith(os.path.sep):
+            codegen_folder_abs += os.path.sep
+        
+        status = self._solver.codegen(codegen_folder_abs, self.verbose)
