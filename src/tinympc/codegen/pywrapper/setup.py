@@ -54,15 +54,15 @@ setup(
     name='tiny_codegen_ext',
     author='Sam Schoedel, Khai Nguyen',
     author_email='seschoedel@gmail.com',
-    description='TinyMPC',
+    description='TinyMPC python module for generated code',
     license='MIT',
     url="https://tinympc.org/",
 
     python_requires='>=3.7',
     setup_requires=["numpy >= 1.7"],
-    install_requires=['numpy >= 1.7'],
+    install_requires=["numpy >= 1.7"],
 
-    ext_modules=[CMakeExtension('tiny_codegen_ext')],
+    ext_modules=[CMakeExtension('tinympcgen')],
     cmdclass={'build_ext': CmdCMakeBuild},
     zip_safe=False
 )

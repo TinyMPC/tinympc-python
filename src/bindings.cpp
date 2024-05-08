@@ -6,8 +6,8 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
-#include "tinympc/admm.hpp"
 #include "tinympc/tiny_api.hpp"
+#include "tinympc/codegen.hpp"
 
 class PyTinySolver {
     public:
@@ -46,10 +46,6 @@ PyTinySolver::PyTinySolver(
         Eigen::Ref<tinyMatrix> u_max,
         TinySettings *settings,
         int verbose) {
-            
-    // TinySolution *solution = new TinySolution();
-    // TinyCache *cache = new TinyCache();
-    // TinyWorkspace *work = new TinyWorkspace();
 
     int status = tiny_setup(&this->_solver, A, B, Q, R, rho, nx, nu, N, x_min, x_max, u_min, u_max, verbose);
     this->_solver->settings = settings;
@@ -57,12 +53,6 @@ PyTinySolver::PyTinySolver(
         std::string message = "Error during setup";
         throw py::value_error(message); 
     }
-
-    // this->_solver = new TinySolver();
-    // this->_solver->solution = solution;
-    // this->_solver->settings = settings;
-    // this->_solver->cache = cache;
-    // this->_solver->work = work;
 }
 
 void PyTinySolver::set_x0(Eigen::Ref<tinyVector> x0) {

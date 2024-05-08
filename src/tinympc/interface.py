@@ -1,5 +1,7 @@
 import os
+import sys
 import shutil
+import subprocess
 import importlib
 import importlib.resources
 import numpy as np
@@ -179,17 +181,39 @@ class TinyMPC:
     def codegen(self, codegen_folder, verbose=False):
         codegen_folder_abs = os.path.abspath(codegen_folder)
 
+        # Create codegen files (tiny_data.hpp/cpp and tiny_main.cpp)
         if not codegen_folder_abs.endswith(os.path.sep):
             codegen_folder_abs += os.path.sep
         status = self._solver.codegen(codegen_folder_abs, verbose)
         
+        # Copy include/* (Eigen lib) and tinympc/(admm.hpp/cpp, api.hpp/cpp, constants.hpp, and types.hpp)
         # https://github.com/python/importlib_resources/issues/85
         try:
             handle = importlib.resources.files('tinympc.codegen').joinpath('codegen_src')
         except AttributeError:
             handle = importlib.resources.path('tinympc.codegen', 'codegen_src')
-
         with handle as codegen_src_path:
             shutil.copytree(codegen_src_path, codegen_folder_abs, dirs_exist_ok=True)
+        
+        # Copy pywrapper files (bindings.cpp, CMakeLists.txt, and setup.py)
+        try:
+            handle = importlib.resources.files('tinympc.codegen').joinpath('pywrapper')
+        except AttributeError:
+            handle = importlib.resources.path('tinympc.codegen', 'pywrapper')
+        with handle as pywrapper_src_path:
+            shutil.copy(pywrapper_src_path.joinpath('bindings.cpp'), codegen_folder_abs)
+            shutil.copy(pywrapper_src_path.joinpath('CMakeLists.txt'), codegen_folder_abs)
+            shutil.copy(pywrapper_src_path.joinpath('setup.py'), codegen_folder_abs)
+
+        # Compile python module for generated code
+        subprocess.check_call(
+            [
+                sys.executable,
+                'setup.py',
+                'build_ext',
+                '--inplace',
+            ],
+            cwd=codegen_folder_abs,
+        )
 
         assert status == 0, "Code generation failed"
