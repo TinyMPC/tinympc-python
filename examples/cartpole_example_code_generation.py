@@ -20,7 +20,4 @@ u_min = np.array([-0.5])
 u_max = np.array([0.5])
 prob.setup(A, B, Q, R, N, rho=1, max_iter=10, u_min=u_min, u_max=u_max)
 
-x0 = np.array([0.5, 0, 0, 0])
-prob.set_x0(x0)
-
 prob.codegen("out", verbose=1)
