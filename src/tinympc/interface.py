@@ -1,6 +1,8 @@
 import os
-import numpy as np
+import shutil
 import importlib
+import importlib.resources
+import numpy as np
 
 class TinyMPC:
     def __init__(self):
@@ -174,12 +176,20 @@ class TinyMPC:
 
         return {"states_all": solution.x.T, "controls_all": solution.u.T, "controls": solution.u[:,0]}
     
-    def codegen(self, codegen_folder):
+    def codegen(self, codegen_folder, verbose=False):
         codegen_folder_abs = os.path.abspath(codegen_folder)
-
-        os.makedirs(codegen_folder_abs, exist_ok=True)
 
         if not codegen_folder_abs.endswith(os.path.sep):
             codegen_folder_abs += os.path.sep
+        status = self._solver.codegen(codegen_folder_abs, verbose)
         
-        status = self._solver.codegen(codegen_folder_abs, self.verbose)
+        # https://github.com/python/importlib_resources/issues/85
+        try:
+            handle = importlib.resources.files('tinympc.codegen').joinpath('codegen_src')
+        except AttributeError:
+            handle = importlib.resources.path('tinympc.codegen', 'codegen_src')
+
+        with handle as codegen_src_path:
+            shutil.copytree(codegen_src_path, codegen_folder_abs, dirs_exist_ok=True)
+
+        assert status == 0, "Code generation failed"
