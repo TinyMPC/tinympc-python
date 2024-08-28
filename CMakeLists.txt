@@ -15,7 +15,7 @@ list(APPEND CMAKE_MESSAGE_INDENT "  ")
 FetchContent_Declare(
   tinympc
   GIT_REPOSITORY https://github.com/TinyMPC/TinyMPC.git
-  GIT_TAG sam-dev-python
+  GIT_TAG 50bfaf3883621cec005c3e3b35ebabc22bb9ed55
 )
 list(POP_BACK CMAKE_MESSAGE_INDENT)
 FetchContent_MakeAvailable(tinympc)
