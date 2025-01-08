@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15...3.26)
 project(ext)
 
 set(PYTHON "ON")
-set(TINY_CODEGEN_INSTALL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/tinympc/codegen/codegen_src" CACHE PATH "" FORCE)
+set(TINY_CODEGEN_INSTALL_DIR "codegen/codegen_src" CACHE PATH "" FORCE)
 
 include(FetchContent)
 
