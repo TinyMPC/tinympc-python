@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15...3.26)
 project(ext)
 
 set(PYTHON "ON")
-set(TINY_CODEGEN_INSTALL_DIR "codegen/codegen_src" CACHE PATH "" FORCE)
+set(TINY_CODEGEN_INSTALL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/tinympc/codegen/codegen_src" CACHE PATH "" FORCE)
 
 include(FetchContent)
 
@@ -15,7 +15,7 @@ list(APPEND CMAKE_MESSAGE_INDENT "  ")
 FetchContent_Declare(
   tinympc
   GIT_REPOSITORY https://github.com/TinyMPC/TinyMPC.git
-  GIT_TAG 50bfaf3883621cec005c3e3b35ebabc22bb9ed55
+  GIT_TAG main
 )
 list(POP_BACK CMAKE_MESSAGE_INDENT)
 FetchContent_MakeAvailable(tinympc)
