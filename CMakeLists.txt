@@ -25,9 +25,9 @@ FetchContent_MakeAvailable(tinympc)
 pybind11_add_module(ext_tinympc src/bindings.cpp)
 install(TARGETS ext_tinympc DESTINATION . COMPONENT python)
 
-
-target_link_libraries(ext_tinympc PUBLIC pybind11::module tinympcstatic)
 install(TARGETS ext_tinympc DESTINATION . COMPONENT python)
+target_link_libraries(ext_tinympc PUBLIC pybind11::module tinympcstatic)
+
 
 # # --- BEGIN ADDED CODE ---
 # # Install codegen source files needed by the interface.py codegen() method
