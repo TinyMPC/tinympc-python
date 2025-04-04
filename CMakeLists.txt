@@ -29,23 +29,3 @@ install(TARGETS ext_tinympc DESTINATION . COMPONENT python)
 target_link_libraries(ext_tinympc PUBLIC pybind11::module tinympcstatic)
 
 
-# # --- BEGIN ADDED CODE ---
-# # Install codegen source files needed by the interface.py codegen() method
-# # These files will be copied into the generated project by interface.py
-# install(
-#   DIRECTORY ${tinympc_SOURCE_DIR}/include/
-#   DESTINATION ${TINY_CODEGEN_INSTALL_DIR}/include
-#   COMPONENT codegen
-# )
-# install(
-#   DIRECTORY ${tinympc_SOURCE_DIR}/tinympc/
-#   DESTINATION ${TINY_CODEGEN_INSTALL_DIR}/tinympc
-#   COMPONENT codegen
-#   # Exclude the CMakeLists.txt from the submodule to avoid potential confusion
-#   PATTERN "CMakeLists.txt" EXCLUDE
-#   # Exclude CMake build artifacts and git files just in case
-#   PATTERN "CMakeFiles" EXCLUDE
-#   PATTERN "*.cmake" EXCLUDE
-#   PATTERN ".git" EXCLUDE
-# )
-# # --- END ADDED CODE ---
