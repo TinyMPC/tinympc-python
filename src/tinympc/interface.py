@@ -229,4 +229,28 @@ class TinyMPC:
         )
 
         assert status == 0, "Code generation failed"
-    
+    def set_sensitivity_matrices(self, dK, dP, dC1, dC2):
+        """Set sensitivity matrices for adaptive rho behavior
+        
+        Args:
+            dK (np.ndarray): Derivative of feedback gain w.r.t. rho
+            dP (np.ndarray): Derivative of value function w.r.t. rho
+            dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
+            dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
+        """
+        # Verify dimensions
+        assert dK.shape == (self.nu, self.nx), f"dK shape mismatch. Expected ({self.nu}, {self.nx}), got {dK.shape}"
+        assert dP.shape == (self.nx, self.nx), f"dP shape mismatch. Expected ({self.nx}, {self.nx}), got {dP.shape}"
+        assert dC1.shape == (self.nu, self.nu), f"dC1 shape mismatch. Expected ({self.nu}, {self.nu}), got {dC1.shape}"
+        assert dC2.shape == (self.nx, self.nx), f"dC2 shape mismatch. Expected ({self.nx}, {self.nx}), got {dC2.shape}"
+
+        # Store matrices in column-major order for Eigen compatibility
+        self.dK = np.array(dK, dtype=float, order="F")
+        self.dP = np.array(dP, dtype=float, order="F")
+        self.dC1 = np.array(dC1, dtype=float, order="F")
+        self.dC2 = np.array(dC2, dtype=float, order="F")
+
+        # Update solver if it exists
+        if self._solver is not None:
+            self._solver.set_sensitivity_matrices(self.dK, self.dP, self.dC1, self.dC2)
+

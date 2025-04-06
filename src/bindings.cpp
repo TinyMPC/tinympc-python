@@ -20,7 +20,9 @@ class PyTinySolver {
         void set_x0(Eigen::Ref<tinyVector>);
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
-        
+        void set_sensitivity_matrices(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>,
+                                    Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>); // dK, dP, dC1, dC2
+
         int solve();
         TinySolution* get_solution();
 
@@ -53,11 +55,6 @@ PyTinySolver::PyTinySolver(
         std::string message = "Error during setup";
         throw py::value_error(message); 
     }
-
-    // Initialize sensitivity matrices for adaptive rho
-    if (this->_solver->settings->adaptive_rho) {
-        tiny_initialize_sensitivity_matrices(this->_solver);
-    }
 }
 
 void PyTinySolver::set_x0(Eigen::Ref<tinyVector> x0) {
@@ -72,6 +69,13 @@ void PyTinySolver::set_u_ref(Eigen::Ref<tinyMatrix> u_ref) {
     tiny_set_u_ref(this->_solver, u_ref);
 }
 
+void PyTinySolver::set_sensitivity_matrices(
+        Eigen::Ref<tinyMatrix> dK,
+        Eigen::Ref<tinyMatrix> dP,
+        Eigen::Ref<tinyMatrix> dC1,
+        Eigen::Ref<tinyMatrix> dC2) {
+    tiny_set_sensitivity_matrices(this->_solver, dK, dP, dC1, dC2);
+}
 
 int PyTinySolver::solve() {
     py::gil_scoped_release release;
@@ -190,6 +194,8 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def("set_x0", &PyTinySolver::set_x0)
     .def("set_x_ref", &PyTinySolver::set_x_ref)
     .def("set_u_ref", &PyTinySolver::set_u_ref)
+    .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
+         "dK"_a.noconvert(), "dP"_a.noconvert(), "dC1"_a.noconvert(), "dC2"_a.noconvert())
     .def("solve", &PyTinySolver::solve)
     .def("print_problem_data", &PyTinySolver::print_problem_data)
     .def("codegen", &PyTinySolver::codegen);
