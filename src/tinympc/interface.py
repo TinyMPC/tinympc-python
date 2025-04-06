@@ -29,6 +29,8 @@ class TinyMPC:
         
         self._solver = None # Solver that stores its own settings, cache, and problem vars/workspace
         self.settings = None # Local settings
+        
+
     
     
     def update_settings(self, **kwargs):
@@ -137,6 +139,16 @@ class TinyMPC:
         self.ext.tiny_set_default_settings(self.settings) # set local settings to default defined by C++ implementation
         self.update_settings(**settings) # change local settings based on arguments available to the interface
 
+        # Add adaptive rho settings
+        if 'adaptive_rho' in settings:
+            self.settings.adaptive_rho = 1 if settings.pop('adaptive_rho') else 0
+        if 'adaptive_rho_min' in settings:
+            self.settings.adaptive_rho_min = settings.pop('adaptive_rho_min')
+        if 'adaptive_rho_max' in settings:
+            self.settings.adaptive_rho_max = settings.pop('adaptive_rho_max')
+        if 'adaptive_rho_enable_clipping' in settings:
+            self.settings.adaptive_rho_enable_clipping = 1 if settings.pop('adaptive_rho_enable_clipping') else 0
+
         self._solver = self.ext.TinySolver(self.A, self.B, self.Q, self.R, self.rho,
                                            self.nx, self.nu, self.N,
                                            self.x_min, self.x_max, self.u_min, self.u_max,
@@ -217,3 +229,4 @@ class TinyMPC:
         )
 
         assert status == 0, "Code generation failed"
+    

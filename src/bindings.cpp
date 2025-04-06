@@ -20,7 +20,7 @@ class PyTinySolver {
         void set_x0(Eigen::Ref<tinyVector>);
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
-
+        
         int solve();
         TinySolution* get_solution();
 
@@ -53,6 +53,11 @@ PyTinySolver::PyTinySolver(
         std::string message = "Error during setup";
         throw py::value_error(message); 
     }
+
+    // Initialize sensitivity matrices for adaptive rho
+    if (this->_solver->settings->adaptive_rho) {
+        tiny_initialize_sensitivity_matrices(this->_solver);
+    }
 }
 
 void PyTinySolver::set_x0(Eigen::Ref<tinyVector> x0) {
@@ -66,6 +71,7 @@ void PyTinySolver::set_x_ref(Eigen::Ref<tinyMatrix> x_ref) {
 void PyTinySolver::set_u_ref(Eigen::Ref<tinyMatrix> u_ref) {
     tiny_set_u_ref(this->_solver, u_ref);
 }
+
 
 int PyTinySolver::solve() {
     py::gil_scoped_release release;
@@ -168,7 +174,11 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def_readwrite("max_iter", &TinySettings::max_iter)
     .def_readwrite("check_termination", &TinySettings::check_termination)
     .def_readwrite("en_state_bound", &TinySettings::en_state_bound)
-    .def_readwrite("en_input_bound", &TinySettings::en_input_bound);
+    .def_readwrite("en_input_bound", &TinySettings::en_input_bound)
+    .def_readwrite("adaptive_rho", &TinySettings::adaptive_rho)
+    .def_readwrite("adaptive_rho_min", &TinySettings::adaptive_rho_min)
+    .def_readwrite("adaptive_rho_max", &TinySettings::adaptive_rho_max)
+    .def_readwrite("adaptive_rho_enable_clipping", &TinySettings::adaptive_rho_enable_clipping);
 
     m.def("tiny_set_default_settings", &tiny_set_default_settings);
 
