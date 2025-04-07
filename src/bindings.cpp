@@ -20,8 +20,13 @@ class PyTinySolver {
         void set_x0(Eigen::Ref<tinyVector>);
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
-        void set_sensitivity_matrices(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>,
-                                    Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>); // dK, dP, dC1, dC2
+        void set_sensitivity_matrices(
+            Eigen::Ref<tinyMatrix> A,
+            Eigen::Ref<tinyMatrix> B,
+            Eigen::Ref<tinyMatrix> Q,
+            Eigen::Ref<tinyMatrix> R,
+            float rho,
+            int verbose = 0);
 
         int solve();
         TinySolution* get_solution();
@@ -29,6 +34,13 @@ class PyTinySolver {
         void print_problem_data();
 
         int codegen(const char*, int); // output_dir, verbosity
+
+         int codegen_with_sensitivity(const char *output_dir, 
+                                   Eigen::Ref<tinyMatrix> dK,
+                                   Eigen::Ref<tinyMatrix> dP,
+                                   Eigen::Ref<tinyMatrix> dC1,
+                                   Eigen::Ref<tinyMatrix> dC2,
+                                   int verbose);
     private:
         TinySolver *_solver;
 };
@@ -70,11 +82,14 @@ void PyTinySolver::set_u_ref(Eigen::Ref<tinyMatrix> u_ref) {
 }
 
 void PyTinySolver::set_sensitivity_matrices(
-        Eigen::Ref<tinyMatrix> dK,
-        Eigen::Ref<tinyMatrix> dP,
-        Eigen::Ref<tinyMatrix> dC1,
-        Eigen::Ref<tinyMatrix> dC2) {
-    tiny_set_sensitivity_matrices(this->_solver, dK, dP, dC1, dC2);
+        Eigen::Ref<tinyMatrix> A,
+        Eigen::Ref<tinyMatrix> B,
+        Eigen::Ref<tinyMatrix> Q,
+        Eigen::Ref<tinyMatrix> R,
+        float rho,
+        int verbose) {
+    compute_sensitivity_matrices(this->_solver->cache, A, B, Q, R, A.rows(), B.cols(), rho, verbose);
+    tiny_initialize_sensitivity_matrices(this->_solver);
 }
 
 int PyTinySolver::solve() {
@@ -144,6 +159,16 @@ int PyTinySolver::codegen(const char *output_dir, int verbose) {
     return tiny_codegen(this->_solver, output_dir, verbose);
 }
 
+int PyTinySolver::codegen_with_sensitivity(const char *output_dir, 
+                                         Eigen::Ref<tinyMatrix> dK,
+                                         Eigen::Ref<tinyMatrix> dP,
+                                         Eigen::Ref<tinyMatrix> dC1,
+                                         Eigen::Ref<tinyMatrix> dC2,
+                                         int verbose) {
+    return tiny_codegen_with_sensitivity(this->_solver, output_dir, 
+                                       &dK, &dP, &dC1, &dC2, verbose);
+}
+
 PYBIND11_MODULE(ext_tinympc, m) {
 // // PYBIND11_MODULE(@TINYMPC_EXT_MODULE_NAME@, m) {
 
@@ -195,9 +220,12 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def("set_x_ref", &PyTinySolver::set_x_ref)
     .def("set_u_ref", &PyTinySolver::set_u_ref)
     .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
-         "dK"_a.noconvert(), "dP"_a.noconvert(), "dC1"_a.noconvert(), "dC2"_a.noconvert())
+         "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "verbose"_a)
     .def("solve", &PyTinySolver::solve)
     .def("print_problem_data", &PyTinySolver::print_problem_data)
-    .def("codegen", &PyTinySolver::codegen);
+    .def("codegen", &PyTinySolver::codegen)
+    .def("codegen_with_sensitivity", &PyTinySolver::codegen_with_sensitivity,
+         "output_dir"_a, "dK"_a.noconvert(), "dP"_a.noconvert(), 
+         "dC1"_a.noconvert(), "dC2"_a.noconvert(), "verbose"_a);
 
 }
