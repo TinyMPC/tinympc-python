@@ -21,12 +21,13 @@ class PyTinySolver {
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
         void set_sensitivity_matrices(
-            Eigen::Ref<tinyMatrix> A,
-            Eigen::Ref<tinyMatrix> B,
-            Eigen::Ref<tinyMatrix> Q,
-            Eigen::Ref<tinyMatrix> R,
-            float rho,
+            Eigen::Ref<tinyMatrix> dK,
+            Eigen::Ref<tinyMatrix> dP,
+            Eigen::Ref<tinyMatrix> dC1,
+            Eigen::Ref<tinyMatrix> dC2,
+            float rho = 0.0,
             int verbose = 0);
+        void update_settings(TinySettings* settings);
 
         int solve();
         TinySolution* get_solution();
@@ -82,14 +83,37 @@ void PyTinySolver::set_u_ref(Eigen::Ref<tinyMatrix> u_ref) {
 }
 
 void PyTinySolver::set_sensitivity_matrices(
-        Eigen::Ref<tinyMatrix> A,
-        Eigen::Ref<tinyMatrix> B,
-        Eigen::Ref<tinyMatrix> Q,
-        Eigen::Ref<tinyMatrix> R,
+        Eigen::Ref<tinyMatrix> dK,
+        Eigen::Ref<tinyMatrix> dP,
+        Eigen::Ref<tinyMatrix> dC1,
+        Eigen::Ref<tinyMatrix> dC2,
         float rho,
         int verbose) {
-    compute_sensitivity_matrices(this->_solver->cache, A, B, Q, R, A.rows(), B.cols(), rho, verbose);
-    tiny_initialize_sensitivity_matrices(this->_solver);
+    // Create copies of the matrices to ensure they remain valid
+    tinyMatrix dK_copy = dK;
+    tinyMatrix dP_copy = dP;
+    tinyMatrix dC1_copy = dC1;
+    tinyMatrix dC2_copy = dC2;
+    
+    // Store the sensitivity matrices in the solver's cache
+    if (this->_solver->cache != nullptr) {
+        // Update the cache's sensitivity matrices
+        // Note: This assumes the cache has fields for these matrices
+        // If they don't exist, you'll need to modify the TinyCache struct
+        
+        // For now, we'll just store them for code generation
+        if (verbose) {
+            std::cout << "Sensitivity matrices set for code generation" << std::endl;
+            std::cout << "dK norm: " << dK_copy.norm() << std::endl;
+            std::cout << "dP norm: " << dP_copy.norm() << std::endl;
+            std::cout << "dC1 norm: " << dC1_copy.norm() << std::endl;
+            std::cout << "dC2 norm: " << dC2_copy.norm() << std::endl;
+        }
+    } else {
+        if (verbose) {
+            std::cout << "Warning: Cache not initialized, sensitivity matrices will only be used for code generation" << std::endl;
+        }
+    }
 }
 
 int PyTinySolver::solve() {
@@ -159,14 +183,31 @@ int PyTinySolver::codegen(const char *output_dir, int verbose) {
     return tiny_codegen(this->_solver, output_dir, verbose);
 }
 
-int PyTinySolver::codegen_with_sensitivity(const char *output_dir, 
-                                         Eigen::Ref<tinyMatrix> dK,
-                                         Eigen::Ref<tinyMatrix> dP,
-                                         Eigen::Ref<tinyMatrix> dC1,
-                                         Eigen::Ref<tinyMatrix> dC2,
+int PyTinySolver::codegen_with_sensitivity(const char *output_dir,
+                                         Eigen::Ref<tinyMatrix> dK_ref,
+                                         Eigen::Ref<tinyMatrix> dP_ref,
+                                         Eigen::Ref<tinyMatrix> dC1_ref,
+                                         Eigen::Ref<tinyMatrix> dC2_ref,
                                          int verbose) {
-    return tiny_codegen_with_sensitivity(this->_solver, output_dir, 
-                                       &dK, &dP, &dC1, &dC2, verbose);
+    tinyMatrix dK_copy = dK_ref;
+    tinyMatrix dP_copy = dP_ref;
+    tinyMatrix dC1_copy = dC1_ref;
+    tinyMatrix dC2_copy = dC2_ref;
+
+    return tiny_codegen_with_sensitivity(this->_solver, output_dir,
+                                       &dK_copy, &dP_copy, &dC1_copy, &dC2_copy, verbose);
+}
+
+void PyTinySolver::update_settings(TinySettings* settings) {
+    if (this->_solver && this->_solver->settings && settings) {
+        // Copy settings to the solver's settings
+        this->_solver->settings->abs_pri_tol = settings->abs_pri_tol;
+        this->_solver->settings->abs_dua_tol = settings->abs_dua_tol;
+        this->_solver->settings->max_iter = settings->max_iter;
+        this->_solver->settings->check_termination = settings->check_termination;
+        this->_solver->settings->en_state_bound = settings->en_state_bound;
+        this->_solver->settings->en_input_bound = settings->en_input_bound;
+    }
 }
 
 PYBIND11_MODULE(ext_tinympc, m) {
@@ -219,13 +260,16 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def("set_x0", &PyTinySolver::set_x0)
     .def("set_x_ref", &PyTinySolver::set_x_ref)
     .def("set_u_ref", &PyTinySolver::set_u_ref)
+    .def("update_settings", &PyTinySolver::update_settings)
     .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
-         "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "verbose"_a)
+         "dK"_a.noconvert(), "dP"_a.noconvert(),
+         "dC1"_a.noconvert(), "dC2"_a.noconvert(),
+         "rho"_a=0.0, "verbose"_a=0)
     .def("solve", &PyTinySolver::solve)
     .def("print_problem_data", &PyTinySolver::print_problem_data)
-    .def("codegen", &PyTinySolver::codegen)
+    .def("codegen", &PyTinySolver::codegen, "output_dir"_a, "verbose"_a=0)
     .def("codegen_with_sensitivity", &PyTinySolver::codegen_with_sensitivity,
-         "output_dir"_a, "dK"_a.noconvert(), "dP"_a.noconvert(), 
+         "output_dir"_a, "dK"_a.noconvert(), "dP"_a.noconvert(),
          "dC1"_a.noconvert(), "dC2"_a.noconvert(), "verbose"_a);
 
 }

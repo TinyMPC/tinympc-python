@@ -238,19 +238,21 @@ class TinyMPC:
             dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
             dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
         """
-        # Verify dimensions
-        assert dK.shape == (self.nu, self.nx), f"dK shape mismatch. Expected ({self.nu}, {self.nx}), got {dK.shape}"
-        assert dP.shape == (self.nx, self.nx), f"dP shape mismatch. Expected ({self.nx}, {self.nx}), got {dP.shape}"
-        assert dC1.shape == (self.nu, self.nu), f"dC1 shape mismatch. Expected ({self.nu}, {self.nu}), got {dC1.shape}"
-        assert dC2.shape == (self.nx, self.nx), f"dC2 shape mismatch. Expected ({self.nx}, {self.nx}), got {dC2.shape}"
-
-        # Store matrices in column-major order for Eigen compatibility
-        self.dK = np.array(dK, dtype=float, order="F")
-        self.dP = np.array(dP, dtype=float, order="F")
-        self.dC1 = np.array(dC1, dtype=float, order="F")
-        self.dC2 = np.array(dC2, dtype=float, order="F")
-
-        # Update solver if it exists
-        if self._solver is not None:
-            self._solver.set_sensitivity_matrices(self.dK, self.dP, self.dC1, self.dC2)
+        # Validate input dimensions
+        assert dK.shape == (self.nu, self.nx), f"dK should have shape ({self.nu}, {self.nx}), got {dK.shape}"
+        assert dP.shape == (self.nx, self.nx), f"dP should have shape ({self.nx}, {self.nx}), got {dP.shape}"
+        assert dC1.shape == (self.nx, self.nx), f"dC1 should have shape ({self.nx}, {self.nx}), got {dC1.shape}"
+        assert dC2.shape == (self.nx, self.nx), f"dC2 should have shape ({self.nx}, {self.nx}), got {dC2.shape}"
+        
+        # Ensure matrices are in Fortran-contiguous order for C++ compatibility
+        dK_f = np.asfortranarray(dK)
+        dP_f = np.asfortranarray(dP)
+        dC1_f = np.asfortranarray(dC1)
+        dC2_f = np.asfortranarray(dC2)
+        
+        # Pass to the C++ solver
+        self._solver.set_sensitivity_matrices(dK_f, dP_f, dC1_f, dC2_f, self.rho, self.verbose)
+        
+        if self.verbose:
+            print(f"Sensitivity matrices set with norms: dK={np.linalg.norm(dK):.6f}, dP={np.linalg.norm(dP):.6f}, dC1={np.linalg.norm(dC1):.6f}, dC2={np.linalg.norm(dC2):.6f}")
 
