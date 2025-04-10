@@ -97,10 +97,7 @@ void PyTinySolver::set_sensitivity_matrices(
     
     // Store the sensitivity matrices in the solver's cache
     if (this->_solver->cache != nullptr) {
-        // Update the cache's sensitivity matrices
-        // Note: This assumes the cache has fields for these matrices
-        // If they don't exist, you'll need to modify the TinyCache struct
-        
+
         // For now, we'll just store them for code generation
         if (verbose) {
             std::cout << "Sensitivity matrices set for code generation" << std::endl;

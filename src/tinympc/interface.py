@@ -238,10 +238,16 @@ class TinyMPC:
             dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
             dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
         """
+        # Skip setting sensitivity matrices if adaptive_rho is disabled
+        if hasattr(self.settings, 'adaptive_rho') and self.settings.adaptive_rho == 0:
+            if self.verbose:
+                print("Skipping sensitivity matrix setup (adaptive_rho disabled)")
+            return
+        
         # Validate input dimensions
         assert dK.shape == (self.nu, self.nx), f"dK should have shape ({self.nu}, {self.nx}), got {dK.shape}"
         assert dP.shape == (self.nx, self.nx), f"dP should have shape ({self.nx}, {self.nx}), got {dP.shape}"
-        assert dC1.shape == (self.nx, self.nx), f"dC1 should have shape ({self.nx}, {self.nx}), got {dC1.shape}"
+        assert dC1.shape == (self.nu, self.nu), f"dC1 should have shape ({self.nu}, {self.nu}), got {dC1.shape}"
         assert dC2.shape == (self.nx, self.nx), f"dC2 should have shape ({self.nx}, {self.nx}), got {dC2.shape}"
         
         # Ensure matrices are in Fortran-contiguous order for C++ compatibility

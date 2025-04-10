@@ -1,89 +1,31 @@
 import tinympc
 import numpy as np
-import sys
-import traceback
 
-def log(msg):
-    print(f"DEBUG: {msg}")
-    sys.stdout.flush()
+# Quadrotor system matrices (12 states, 4 inputs)
+A = np.eye(12)  # Identity matrix for simplicity
+B = np.zeros((12, 4))
+# Fill in control effectiveness
+B[0:3, 0:4] = 0.01 * np.ones((3, 4))  # Position control
+B[3:6, 0:4] = 0.05 * np.ones((3, 4))  # Velocity control
+B[6:9, 0:4] = 0.02 * np.ones((3, 4))  # Attitude control
+B[9:12, 0:4] = 0.1 * np.ones((3, 4))  # Angular velocity control
 
-try:
-    log("Creating TinyMPC instance")
-    prob = tinympc.TinyMPC()
-    
-    log("Setting up system matrices")
-    # Quadrotor system matrices from provided data
-    # 12 states, 4 inputs
-    
-    # Convert the flattened array to a 12x12 matrix
-    Adyn_data = [
-        1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0245250, 0.0000000, 0.0500000, 0.0000000, 0.0000000, 0.0000000, 0.0002044, 0.0000000,
-        0.0000000, 1.0000000, 0.0000000, -0.0245250, 0.0000000, 0.0000000, 0.0000000, 0.0500000, 0.0000000, -0.0002044, 0.0000000, 0.0000000,
-        0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0500000, 0.0000000, 0.0000000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0250000, 0.0000000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0250000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0250000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.9810000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0122625, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, -0.9810000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, -0.0122625, 0.0000000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000,
-        0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000
-    ]
-    A = np.array(Adyn_data).reshape(12, 12)
-    
-    # Convert the flattened array to a 12x4 matrix
-    Bdyn_data = [
-        -0.0007069, 0.0007773, 0.0007091, -0.0007795,
-        0.0007034, 0.0007747, -0.0007042, -0.0007739,
-        0.0052554, 0.0052554, 0.0052554, 0.0052554,
-        -0.1720966, -0.1895213, 0.1722891, 0.1893288,
-        -0.1729419, 0.1901740, 0.1734809, -0.1907131,
-        0.0123423, -0.0045148, -0.0174024, 0.0095748,
-        -0.0565520, 0.0621869, 0.0567283, -0.0623632,
-        0.0562756, 0.0619735, -0.0563386, -0.0619105,
-        0.2102143, 0.2102143, 0.2102143, 0.2102143,
-        -13.7677303, -15.1617018, 13.7831318, 15.1463003,
-        -13.8353509, 15.2139209, 13.8784751, -15.2570451,
-        0.9873856, -0.3611820, -1.3921880, 0.7659845
-    ]
-    B = np.array(Bdyn_data).reshape(12, 4)
-    
-    # Cost matrices
-    Q_data = [100.0, 100.0, 100.0, 4.0, 4.0, 400.0, 4.0, 4.0, 4.0, 2.0408163, 2.0408163, 4.0]
-    Q = np.diag(Q_data)
-    
-    R_data = [4.0, 4.0, 4.0, 4.0]
-    R = np.diag(R_data)
-    
-    N = 10  # Horizon length
-    
-    # Set control bounds
-    u_min = np.array([-0.2, -0.2, -0.2, -0.2])
-    u_max = np.array([0.2, 0.2, 0.2, 0.2])
-    
-    # Ensure matrices are in the correct format (Fortran-contiguous)
-    A = np.asfortranarray(A)
-    B = np.asfortranarray(B)
-    Q = np.asfortranarray(Q)
-    R = np.asfortranarray(R)
-    
-    log("Setting up the problem")
-    # Use a very simple setup with minimal parameters
-    prob.setup(A, B, Q, R, N, rho=1.0, u_min=u_min, u_max=u_max)
-    
-    log("Setting initial condition")
-    x0 = np.zeros(12)  # Start at origin
-    prob.set_x0(x0)
-    
-    log("Solving the problem")
-    solution = prob.solve()
-    
-    log("Solution obtained")
-    log(f"Controls: {solution['controls']}")
-    
-    log("Done")
-    
-except Exception as e:
-    log(f"Exception: {e}")
-    traceback.print_exc()
+# Cost matrices
+Q = np.diag([10.0, 10.0, 10.0, 1.0, 1.0, 1.0, 5.0, 5.0, 5.0, 0.1, 0.1, 0.1])
+R = np.diag([0.1, 0.1, 0.1, 0.1])
+
+N = 20
+
+prob = tinympc.TinyMPC()
+
+u_min = -np.ones(4) * 2.0
+u_max = np.ones(4) * 2.0
+prob.setup(A, B, Q, R, N, rho=1.0, max_iter=100, u_min=u_min, u_max=u_max)
+
+# Enable adaptive rho for quadrotor
+if hasattr(prob.settings, 'adaptive_rho'):
+    prob.settings.adaptive_rho = 1
+    print("Enabled adaptive rho for quadrotor")
+
+# Generate code
+prob.codegen("out", verbose=1)
