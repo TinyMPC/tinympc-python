@@ -27,6 +27,12 @@ class PyTinySolver {
             Eigen::Ref<tinyMatrix> dC2,
             float rho = 0.0,
             int verbose = 0);
+        void set_cache_terms(
+            Eigen::Ref<tinyMatrix> Kinf,
+            Eigen::Ref<tinyMatrix> Pinf,
+            Eigen::Ref<tinyMatrix> Quu_inv,
+            Eigen::Ref<tinyMatrix> AmBKt,
+            int verbose = 0);
         void update_settings(TinySettings* settings);
 
         int solve();
@@ -195,6 +201,24 @@ int PyTinySolver::codegen_with_sensitivity(const char *output_dir,
                                        &dK_copy, &dP_copy, &dC1_copy, &dC2_copy, verbose);
 }
 
+void PyTinySolver::set_cache_terms(
+        Eigen::Ref<tinyMatrix> Kinf,
+        Eigen::Ref<tinyMatrix> Pinf,
+        Eigen::Ref<tinyMatrix> Quu_inv,
+        Eigen::Ref<tinyMatrix> AmBKt,
+        int verbose) {
+    // Create copies of the matrices to ensure they remain valid
+    tinyMatrix Kinf_copy = Kinf;
+    tinyMatrix Pinf_copy = Pinf;
+    tinyMatrix Quu_inv_copy = Quu_inv;
+    tinyMatrix AmBKt_copy = AmBKt;
+    
+    int status = tiny_set_cache_terms(this->_solver, Kinf_copy, Pinf_copy, Quu_inv_copy, AmBKt_copy, verbose);
+    if (status) {
+        throw py::value_error("Error setting cache terms");
+    }
+}
+
 void PyTinySolver::update_settings(TinySettings* settings) {
     if (this->_solver && this->_solver->settings && settings) {
         // Copy settings to the solver's settings
@@ -204,6 +228,12 @@ void PyTinySolver::update_settings(TinySettings* settings) {
         this->_solver->settings->check_termination = settings->check_termination;
         this->_solver->settings->en_state_bound = settings->en_state_bound;
         this->_solver->settings->en_input_bound = settings->en_input_bound;
+        
+        // Copy adaptive rho settings
+        this->_solver->settings->adaptive_rho = settings->adaptive_rho;
+        this->_solver->settings->adaptive_rho_min = settings->adaptive_rho_min;
+        this->_solver->settings->adaptive_rho_max = settings->adaptive_rho_max;
+        this->_solver->settings->adaptive_rho_enable_clipping = settings->adaptive_rho_enable_clipping;
     }
 }
 
@@ -262,6 +292,9 @@ PYBIND11_MODULE(ext_tinympc, m) {
          "dK"_a.noconvert(), "dP"_a.noconvert(),
          "dC1"_a.noconvert(), "dC2"_a.noconvert(),
          "rho"_a=0.0, "verbose"_a=0)
+    .def("set_cache_terms", &PyTinySolver::set_cache_terms,
+         py::arg("Kinf"), py::arg("Pinf"), py::arg("Quu_inv"), py::arg("AmBKt"),
+         py::arg("verbose") = 0)
     .def("solve", &PyTinySolver::solve)
     .def("print_problem_data", &PyTinySolver::print_problem_data)
     .def("codegen", &PyTinySolver::codegen, "output_dir"_a, "verbose"_a=0)

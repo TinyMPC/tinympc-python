@@ -262,3 +262,45 @@ class TinyMPC:
         if self.verbose:
             print(f"Sensitivity matrices set with norms: dK={np.linalg.norm(dK):.6f}, dP={np.linalg.norm(dP):.6f}, dC1={np.linalg.norm(dC1):.6f}, dC2={np.linalg.norm(dC2):.6f}")
 
+    def compute_cache_terms(self):
+        """Compute cache terms for ADMM solver"""
+        if self._solver is None:
+            raise RuntimeError("Solver not initialized. Call setup() first.")
+        
+        # Add rho regularization
+        Q_rho = self.Q + self.rho * np.eye(self.nx)
+        R_rho = self.R + self.rho * np.eye(self.nu)
+        
+        # Initialize
+        Kinf = np.zeros((self.nu, self.nx))
+        Pinf = np.copy(self.Q)
+        
+        # Compute infinite horizon solution
+        for _ in range(5000):
+            Kinf_prev = np.copy(Kinf)
+            Kinf = np.linalg.solve(
+                R_rho + self.B.T @ Pinf @ self.B + 1e-8*np.eye(self.nu),
+                self.B.T @ Pinf @ self.A
+            )
+            Pinf = Q_rho + self.A.T @ Pinf @ (self.A - self.B @ Kinf)
+            
+            if np.linalg.norm(Kinf - Kinf_prev) < 1e-10:
+                break
+        
+        AmBKt = (self.A - self.B @ Kinf).T
+        Quu_inv = np.linalg.inv(R_rho + self.B.T @ Pinf @ self.B)
+        
+        # Set cache terms in the C++ solver
+        self._solver.set_cache_terms(
+            np.asfortranarray(Kinf),
+            np.asfortranarray(Pinf),
+            np.asfortranarray(Quu_inv),
+            np.asfortranarray(AmBKt),
+            self.verbose
+        )
+        
+        if self.verbose:
+            print(f"Cache terms computed with norms: Kinf={np.linalg.norm(Kinf):.6f}, Pinf={np.linalg.norm(Pinf):.6f}")
+            print(f"C1={np.linalg.norm(Quu_inv):.6f}, C2={np.linalg.norm(AmBKt):.6f}")
+        
+        return Kinf, Pinf, Quu_inv, AmBKt
