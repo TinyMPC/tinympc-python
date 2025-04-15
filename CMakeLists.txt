@@ -15,7 +15,7 @@ list(APPEND CMAKE_MESSAGE_INDENT "  ")
 FetchContent_Declare(
   tinympc
   #GIT_REPOSITORY https://github.com/TinyMPC/TinyMPC.git
-  GIT_REPOSITORY https://github.com/ishaanamahajan/TinyMPC
+  GIT_REPOSITORY https://github.com/ishaanamahajan/TinyMPC.git
   GIT_TAG main
 )
 list(POP_BACK CMAKE_MESSAGE_INDENT)

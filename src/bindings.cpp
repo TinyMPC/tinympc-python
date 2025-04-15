@@ -207,15 +207,27 @@ void PyTinySolver::set_cache_terms(
         Eigen::Ref<tinyMatrix> Quu_inv,
         Eigen::Ref<tinyMatrix> AmBKt,
         int verbose) {
-    // Create copies of the matrices to ensure they remain valid
-    tinyMatrix Kinf_copy = Kinf;
-    tinyMatrix Pinf_copy = Pinf;
-    tinyMatrix Quu_inv_copy = Quu_inv;
-    tinyMatrix AmBKt_copy = AmBKt;
+    if (!this->_solver) {
+        throw py::value_error("Solver not initialized");
+    }
+    if (!this->_solver->cache) {
+        throw py::value_error("Solver cache not initialized");
+    }
     
-    int status = tiny_set_cache_terms(this->_solver, Kinf_copy, Pinf_copy, Quu_inv_copy, AmBKt_copy, verbose);
-    if (status) {
-        throw py::value_error("Error setting cache terms");
+    // Create copies of the matrices to ensure they remain valid
+    this->_solver->cache->Kinf = Kinf;
+    this->_solver->cache->Pinf = Pinf;
+    this->_solver->cache->Quu_inv = Quu_inv;
+    this->_solver->cache->AmBKt = AmBKt;
+    this->_solver->cache->C1 = Quu_inv;  // Cache terms
+    this->_solver->cache->C2 = AmBKt;    // Cache terms
+    
+    if (verbose) {
+        std::cout << "Cache terms set with norms:" << std::endl;
+        std::cout << "Kinf norm: " << Kinf.norm() << std::endl;
+        std::cout << "Pinf norm: " << Pinf.norm() << std::endl;
+        std::cout << "Quu_inv norm: " << Quu_inv.norm() << std::endl;
+        std::cout << "AmBKt norm: " << AmBKt.norm() << std::endl;
     }
 }
 

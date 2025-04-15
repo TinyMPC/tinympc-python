@@ -115,10 +115,8 @@ int tiny_setup(TinySolver** solverp,
         return status;
     }
 
-    // Initialize sensitivity matrices for adaptive rho
-    if (solver->settings->adaptive_rho) {
-        tiny_initialize_sensitivity_matrices(solver);
-    }
+    // Always initialize sensitivity matrices, regardless of adaptive_rho setting
+    tiny_initialize_sensitivity_matrices(solver);
 
     return 0;
 }

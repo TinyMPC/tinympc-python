@@ -229,6 +229,71 @@ class TinyMPC:
         )
 
         assert status == 0, "Code generation failed"
+
+    def codegen_with_sensitivity(self, codegen_folder, dK, dP, dC1, dC2, verbose=False):
+        """Generate code with sensitivity matrices for adaptive rho.
+        
+        Args:
+            codegen_folder (str): Output directory for generated code
+            dK (np.ndarray): Derivative of feedback gain w.r.t. rho
+            dP (np.ndarray): Derivative of value function w.r.t. rho
+            dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
+            dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
+            verbose (bool): Whether to print debug information
+        """
+        codegen_folder_abs = os.path.abspath(codegen_folder)
+
+        # Create codegen files with sensitivity matrices
+        if not codegen_folder_abs.endswith(os.path.sep):
+            codegen_folder_abs += os.path.sep
+            
+        # Set sensitivity matrices in the solver
+        # Convert verbose bool to int for C++
+        verbose_int = 1 if verbose else 0
+        
+        # Ensure matrices are in Fortran-contiguous order
+        dK_f = np.asfortranarray(dK)
+        dP_f = np.asfortranarray(dP)
+        dC1_f = np.asfortranarray(dC1)
+        dC2_f = np.asfortranarray(dC2)
+        
+        # Set sensitivity matrices
+        self.set_sensitivity_matrices(dK_f, dP_f, dC1_f, dC2_f)
+        
+        # Generate code with sensitivity matrices
+        status = self._solver.codegen_with_sensitivity(codegen_folder_abs, dK_f, dP_f, dC1_f, dC2_f, verbose_int)
+        
+        # Copy include/* and tinympc/ files
+        try:
+            handle = importlib.resources.files('tinympc.codegen').joinpath('codegen_src')
+        except AttributeError:
+            handle = importlib.resources.path('tinympc.codegen', 'codegen_src')
+        with handle as codegen_src_path:
+            shutil.copytree(codegen_src_path, codegen_folder_abs, dirs_exist_ok=True)
+        
+        # Copy pywrapper files
+        try:
+            handle = importlib.resources.files('tinympc.codegen').joinpath('pywrapper')
+        except AttributeError:
+            handle = importlib.resources.path('tinympc.codegen', 'pywrapper')
+        with handle as pywrapper_src_path:
+            shutil.copy(pywrapper_src_path.joinpath('bindings.cpp'), codegen_folder_abs)
+            shutil.copy(pywrapper_src_path.joinpath('CMakeLists.txt'), codegen_folder_abs)
+            shutil.copy(pywrapper_src_path.joinpath('setup.py'), codegen_folder_abs)
+
+        # Compile python module
+        subprocess.check_call(
+            [
+                sys.executable,
+                'setup.py',
+                'build_ext',
+                '--inplace',
+            ],
+            cwd=codegen_folder_abs,
+        )
+
+        assert status == 0, "Code generation with sensitivity matrices failed"
+
     def set_sensitivity_matrices(self, dK, dP, dC1, dC2):
         """Set sensitivity matrices for adaptive rho behavior
         
@@ -238,12 +303,6 @@ class TinyMPC:
             dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
             dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
         """
-        # Skip setting sensitivity matrices if adaptive_rho is disabled
-        if hasattr(self.settings, 'adaptive_rho') and self.settings.adaptive_rho == 0:
-            if self.verbose:
-                print("Skipping sensitivity matrix setup (adaptive_rho disabled)")
-            return
-        
         # Validate input dimensions
         assert dK.shape == (self.nu, self.nx), f"dK should have shape ({self.nu}, {self.nx}), got {dK.shape}"
         assert dP.shape == (self.nx, self.nx), f"dP should have shape ({self.nx}, {self.nx}), got {dP.shape}"
@@ -256,8 +315,8 @@ class TinyMPC:
         dC1_f = np.asfortranarray(dC1)
         dC2_f = np.asfortranarray(dC2)
         
-        # Pass to the C++ solver
-        self._solver.set_sensitivity_matrices(dK_f, dP_f, dC1_f, dC2_f, self.rho, self.verbose)
+        # Pass to the C++ solver with default values for rho and verbose
+        self._solver.set_sensitivity_matrices(dK_f, dP_f, dC1_f, dC2_f)
         
         if self.verbose:
             print(f"Sensitivity matrices set with norms: dK={np.linalg.norm(dK):.6f}, dP={np.linalg.norm(dP):.6f}, dC1={np.linalg.norm(dC1):.6f}, dC2={np.linalg.norm(dC2):.6f}")
