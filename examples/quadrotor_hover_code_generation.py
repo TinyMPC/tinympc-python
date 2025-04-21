@@ -84,13 +84,14 @@ if ENABLE_ADAPTIVE_RHO:
         return anp.concatenate([K.flatten(), P.flatten(), C1.flatten(), C2.flatten()])
 
     derivs = jacobian(lqr_direct)(rho_value)
-    # split into four blocks and reshape
-    sizes = [4*12, 12*12, 4*4, 12*12]
-    parts = np.split(np.array(derivs), np.cumsum(sizes)[:-1])
-    dK = parts[0].reshape(4, 12)
-    dP = parts[1].reshape(12, 12)
-    dC1 = parts[2].reshape(4, 4)
-    dC2 = parts[3].reshape(12, 12)
+    # Dynamically split the derivative vector based on matrix sizes
+    deriv_array = np.array(derivs)
+    nu, nx = Bdyn.shape[1], Adyn.shape[0]
+    idx = 0
+    dK  = deriv_array[idx:idx + nu * nx].reshape(nu, nx); idx += nu * nx
+    dP  = deriv_array[idx:idx + nx * nx].reshape(nx, nx); idx += nx * nx
+    dC1 = deriv_array[idx:idx + nu * nu].reshape(nu, nu); idx += nu * nu
+    dC2 = deriv_array[idx:idx + nx * nx].reshape(nx, nx)
     
     # Generate code with sensitivity matrices
     prob.codegen_with_sensitivity("out", dK, dP, dC1, dC2, verbose=1)   
