@@ -363,3 +363,42 @@ class TinyMPC:
             print(f"C1={np.linalg.norm(Quu_inv):.6f}, C2={np.linalg.norm(AmBKt):.6f}")
         
         return Kinf, Pinf, Quu_inv, AmBKt
+
+    def compute_sensitivity_autograd(self):
+        """Compute dK, dP, dC1, dC2 with respect to rho using Autograd's jacobian."""
+        # Local imports to avoid hard dependency unless this method is called
+        from autograd import jacobian
+        import autograd.numpy as anp
+
+        # Define the vectorized LQR solution mapping rho -> [K,P,C1,C2].flatten()
+        def lqr_flat(rho):
+            R_rho = anp.array(self.R) + rho * anp.eye(self.nu)
+            Q_rho = anp.array(self.Q) + rho * anp.eye(self.nx)
+            P = Q_rho
+            for _ in range(5000):
+                K = anp.linalg.solve(
+                    R_rho + self.B.T @ P @ self.B + 1e-8 * anp.eye(self.nu),
+                    self.B.T @ P @ self.A
+                )
+                P = Q_rho + self.A.T @ P @ (self.A - self.B @ K)
+            K = anp.linalg.solve(
+                R_rho + self.B.T @ P @ self.B + 1e-8 * anp.eye(self.nu),
+                self.B.T @ P @ self.A
+            )
+            C1 = anp.linalg.inv(R_rho + self.B.T @ P @ self.B)
+            C2 = (self.A - self.B @ K).T
+            return anp.concatenate([K.flatten(), P.flatten(), C1.flatten(), C2.flatten()])
+
+        # Compute the Jacobian w.r.t. rho
+        jac = jacobian(lqr_flat)
+        vec = jac(self.rho)
+
+        # Split derivative vector into four blocks
+        m, n = self.nu, self.nx
+        sizes = [m * n, n * n, m * m, n * n]
+        parts = np.split(np.array(vec), np.cumsum(sizes)[:-1])
+        dK = parts[0].reshape(m, n)
+        dP = parts[1].reshape(n, n)
+        dC1 = parts[2].reshape(m, m)
+        dC2 = parts[3].reshape(n, n)
+        return dK, dP, dC1, dC2

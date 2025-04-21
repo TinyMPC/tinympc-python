@@ -1,21 +1,50 @@
 import tinympc
 import numpy as np
+from autograd import jacobian
+import autograd.numpy as anp
 
 # Toggle switch for adaptive rho
 ENABLE_ADAPTIVE_RHO = True  # Set to True to enable adaptive rho
 
 # Quadrotor system matrices (12 states, 4 inputs)
-A = np.eye(12)  # Identity matrix for simplicity
-B = np.zeros((12, 4))
-# Fill in control effectiveness
-B[0:3, 0:4] = 0.01 * np.ones((3, 4))  # Position control
-B[3:6, 0:4] = 0.05 * np.ones((3, 4))  # Velocity control
-B[6:9, 0:4] = 0.02 * np.ones((3, 4))  # Attitude control
-B[9:12, 0:4] = 0.1 * np.ones((3, 4))  # Angular velocity control
+rho_value = 5.0
+Adyn = np.array([
+    1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0245250, 0.0000000, 0.0500000, 0.0000000, 0.0000000, 0.0000000, 0.0002044, 0.0000000,
+    0.0000000, 1.0000000, 0.0000000, -0.0245250, 0.0000000, 0.0000000, 0.0000000, 0.0500000, 0.0000000, -0.0002044, 0.0000000, 0.0000000,
+    0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0500000, 0.0000000, 0.0000000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0250000, 0.0000000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0250000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0250000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.9810000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0122625, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, -0.9810000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, -0.0122625, 0.0000000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000, 0.0000000,
+    0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 1.0000000
+]).reshape(12, 12)
 
-# Cost matrices
-Q = np.diag([10.0, 10.0, 10.0, 1.0, 1.0, 1.0, 5.0, 5.0, 5.0, 0.1, 0.1, 0.1])
-R = np.diag([0.1, 0.1, 0.1, 0.1])
+# Input/control matrix
+Bdyn = np.array([
+    -0.0007069, 0.0007773, 0.0007091, -0.0007795,
+    0.0007034, 0.0007747, -0.0007042, -0.0007739,
+    0.0052554, 0.0052554, 0.0052554, 0.0052554,
+    -0.1720966, -0.1895213, 0.1722891, 0.1893288,
+    -0.1729419, 0.1901740, 0.1734809, -0.1907131,
+    0.0123423, -0.0045148, -0.0174024, 0.0095748,
+    -0.0565520, 0.0621869, 0.0567283, -0.0623632,
+    0.0562756, 0.0619735, -0.0563386, -0.0619105,
+    0.2102143, 0.2102143, 0.2102143, 0.2102143,
+    -13.7677303, -15.1617018, 13.7831318, 15.1463003,
+    -13.8353509, 15.2139209, 13.8784751, -15.2570451,
+    0.9873856, -0.3611820, -1.3921880, 0.7659845
+]).reshape(12, 4)
+
+
+Q_diag = np.array([100.0000000, 100.0000000, 100.0000000, 4.0000000, 4.0000000, 400.0000000,
+                   4.0000000, 4.0000000, 4.0000000, 2.0408163, 2.0408163, 4.0000000])
+R_diag = np.array([4.0000000, 4.0000000, 4.0000000, 4.0000000])
+Q = np.diag(Q_diag)
+R = np.diag(R_diag)
 
 N = 20
 
@@ -25,7 +54,7 @@ u_min = -np.ones(4) * 2.0
 u_max = np.ones(4) * 2.0
 
 # Setup with adaptive rho based on toggle
-prob.setup(A, B, Q, R, N, rho=1.0, max_iter=100, u_min=u_min, u_max=u_max, 
+prob.setup(Adyn, Bdyn, Q, R, N, rho=rho_value, max_iter=100, u_min=u_min, u_max=u_max, 
           adaptive_rho=1 if ENABLE_ADAPTIVE_RHO else 0)
 
 if ENABLE_ADAPTIVE_RHO:
@@ -34,20 +63,34 @@ if ENABLE_ADAPTIVE_RHO:
     # First compute the cache terms (this will compute K, P, etc.)
     Kinf, Pinf, Quu_inv, AmBKt = prob.compute_cache_terms()
     
-    # Compute sensitivity matrices using autograd
-    # For now, we'll use small perturbations to approximate derivatives
-    eps = 1e-4
-    rho = 1.0
-    
-    # Compute perturbed cache terms
-    prob.setup(A, B, Q, R, N, rho=rho + eps, max_iter=100, u_min=u_min, u_max=u_max, adaptive_rho=1)
-    Kinf_p, Pinf_p, Quu_inv_p, AmBKt_p = prob.compute_cache_terms()
-    
-    # Compute derivatives with respect to rho using finite differences
-    dK = (Kinf_p - Kinf) / eps
-    dP = (Pinf_p - Pinf) / eps
-    dC1 = (Quu_inv_p - Quu_inv) / eps  # dC1 is derivative of Quu_inv
-    dC2 = (AmBKt_p - AmBKt) / eps      # dC2 is derivative of AmBKt
+    # Compute derivatives with respect to rho via Autograd's Jacobian
+    def lqr_direct(rho):
+        R_rho = anp.array(R) + rho * anp.eye(4)
+        Q_rho = anp.array(Q) + rho * anp.eye(12)
+        P = Q_rho
+        for _ in range(5000):
+            K = anp.linalg.solve(
+                R_rho + Bdyn.T @ P @ Bdyn + 1e-8*anp.eye(4),
+                Bdyn.T @ P @ Adyn
+            )
+            P = Q_rho + Adyn.T @ P @ (Adyn - Bdyn @ K)
+        # Final gain and cache matrices
+        K = anp.linalg.solve(
+            R_rho + Bdyn.T @ P @ Bdyn + 1e-8*anp.eye(4),
+            Bdyn.T @ P @ Adyn
+        )
+        C1 = anp.linalg.inv(R_rho + Bdyn.T @ P @ Bdyn)
+        C2 = (Adyn - Bdyn @ K).T
+        return anp.concatenate([K.flatten(), P.flatten(), C1.flatten(), C2.flatten()])
+
+    derivs = jacobian(lqr_direct)(rho_value)
+    # split into four blocks and reshape
+    sizes = [4*12, 12*12, 4*4, 12*12]
+    parts = np.split(np.array(derivs), np.cumsum(sizes)[:-1])
+    dK = parts[0].reshape(4, 12)
+    dP = parts[1].reshape(12, 12)
+    dC1 = parts[2].reshape(4, 4)
+    dC2 = parts[3].reshape(12, 12)
     
     # Generate code with sensitivity matrices
     prob.codegen_with_sensitivity("out", dK, dP, dC1, dC2, verbose=1)   
