@@ -4,7 +4,7 @@ from autograd import jacobian
 import autograd.numpy as anp
 
 # Toggle switch for adaptive rho
-ENABLE_ADAPTIVE_RHO = True  # Set to True to enable adaptive rho
+ENABLE_ADAPTIVE_RHO = True   # Set to True to enable adaptive rho
 
 # Quadrotor system matrices (12 states, 4 inputs)
 rho_value = 5.0
@@ -70,13 +70,13 @@ if ENABLE_ADAPTIVE_RHO:
         P = Q_rho
         for _ in range(50):
             K = anp.linalg.solve(
-                R_rho + Bdyn.T @ P @ Bdyn + 1e-8*anp.eye(4),
+                R_rho + Bdyn.T @ P @ Bdyn + 1e-4*anp.eye(4),
                 Bdyn.T @ P @ Adyn
             )
             P = Q_rho + Adyn.T @ P @ (Adyn - Bdyn @ K)
         # Final gain and cache matrices
         K = anp.linalg.solve(
-            R_rho + Bdyn.T @ P @ Bdyn + 1e-8*anp.eye(4),
+            R_rho + Bdyn.T @ P @ Bdyn + 1e-4*anp.eye(4),
             Bdyn.T @ P @ Adyn
         )
         C1 = anp.linalg.inv(R_rho + Bdyn.T @ P @ Bdyn)
