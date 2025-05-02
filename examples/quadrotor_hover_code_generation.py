@@ -68,7 +68,7 @@ if ENABLE_ADAPTIVE_RHO:
         R_rho = anp.array(R) + rho * anp.eye(4)
         Q_rho = anp.array(Q) + rho * anp.eye(12)
         P = Q_rho
-        for _ in range(5000):
+        for _ in range(50):
             K = anp.linalg.solve(
                 R_rho + Bdyn.T @ P @ Bdyn + 1e-8*anp.eye(4),
                 Bdyn.T @ P @ Adyn
