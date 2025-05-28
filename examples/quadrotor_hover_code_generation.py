@@ -4,7 +4,7 @@ from autograd import jacobian
 import autograd.numpy as anp
 
 # Toggle switch for adaptive rho
-ENABLE_ADAPTIVE_RHO = True   # Set to True to enable adaptive rho
+ENABLE_ADAPTIVE_RHO = False   # Set to True to enable adaptive rho
 
 # Quadrotor system matrices (12 states, 4 inputs)
 rho_value = 5.0
