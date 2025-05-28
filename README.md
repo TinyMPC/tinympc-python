@@ -3,27 +3,31 @@ Python wrapper for [TinyMPC](https://tinympc.org/).
 ## Installation
 
 ```bash
-    pip install tinympc
+pip install tinympc
 ```
 
-
-For development installation:
+For development installation (optional):
 ```bash
-git clone --recursive https://github.com/TinyMPC/tinympc-python.git
+git clone https://github.com/TinyMPC/tinympc-python.git
 cd tinympc-python
 pip install -e .
 ```
 
 ## Examples
 
-The `examples/` directory contains:
-- `cartpole_example_one_solve.py`
-- `cartpole_example_mpc_constrained.py`
-- `cartpole_example_mpc.py`
-- `cartpole_example_code_generation.py`
-- `quadrotor_hover_code_generation.py` - For online hyperparameter tuning of rho set ```ENABLE_ADAPTIVE_RHO``` to ```True```
+The `examples/` directory contains several demonstration files:
 
+### Basic Examples
+- `cartpole_example_one_solve.py` - Single solve for cartpole problem
+- `cartpole_example_mpc.py` - MPC implementation for cartpole
+- `cartpole_example_mpc_constrained.py` - MPC with constraints
 
+### Code Generation Examples 
+*Note: Quadrotor Code generation examples require autograd: `pip install autograd`*
+
+- `cartpole_example_code_generation.py` - Code generation for cartpole
+- `quadrotor_hover_code_generation.py` - Code generation for quadrotor hover
+  - For online hyperparameter tuning, set `ENABLE_ADAPTIVE_RHO = True` in the file
 
 ## Documentation
 
