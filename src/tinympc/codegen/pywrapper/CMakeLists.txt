@@ -3,15 +3,38 @@ project(tinympc_codegen_ext)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
 
-file(GLOB TINY_SOURCES tinympc/*.cpp)
+# Add Eigen include directories
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Eigen
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc
+)
+
+# Instead of using GLOB which might not find any files,
+# explicitly include the source files we know should be there
+set(TINY_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tiny_data.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc/admm.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc/tiny_api.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc/rho_benchmark.cpp
+)
 
 # Create tinympc library
 add_library(tinympcstatic STATIC ${TINY_SOURCES})
-target_include_directories(tinympcstatic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(tinympcstatic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(tinympcstatic PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Eigen
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc
+)
 
 # Create example main executable
 add_executable(tiny_codegen_example src/tiny_main.cpp src/tiny_data.cpp)
+target_include_directories(tiny_codegen_example PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Eigen
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc
+)
 target_link_libraries(tiny_codegen_example LINK_PUBLIC tinympcstatic)
 
 # Create python module
@@ -21,12 +44,19 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/pybind/pybind11.git)
 FetchContent_MakeAvailable(pybind11)
 
-file(
-  GLOB
-  EXT_SOURCES
-  src/tiny_data.cpp
-  tinympc/tiny_data.hpp
-  bindings.cpp)
+# Define extension sources explicitly
+set(EXT_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/tiny_data.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/tinympc/admm.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/tinympc/tiny_api.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/tinympc/rho_benchmark.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/bindings.cpp
+)
 
-pybind11_add_module(tinympcgen ${TINY_SOURCES} ${EXT_SOURCES})
+pybind11_add_module(tinympcgen ${EXT_SOURCES})
+target_include_directories(tinympcgen PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Eigen
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinympc
+)
 target_link_libraries(tinympcgen PUBLIC pybind11::module tinympcstatic)

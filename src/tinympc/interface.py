@@ -29,6 +29,8 @@ class TinyMPC:
         
         self._solver = None # Solver that stores its own settings, cache, and problem vars/workspace
         self.settings = None # Local settings
+        
+
     
     
     def update_settings(self, **kwargs):
@@ -137,6 +139,16 @@ class TinyMPC:
         self.ext.tiny_set_default_settings(self.settings) # set local settings to default defined by C++ implementation
         self.update_settings(**settings) # change local settings based on arguments available to the interface
 
+        # Add adaptive rho settings
+        if 'adaptive_rho' in settings:
+            self.settings.adaptive_rho = 1 if settings.pop('adaptive_rho') else 0
+        if 'adaptive_rho_min' in settings:
+            self.settings.adaptive_rho_min = settings.pop('adaptive_rho_min')
+        if 'adaptive_rho_max' in settings:
+            self.settings.adaptive_rho_max = settings.pop('adaptive_rho_max')
+        if 'adaptive_rho_enable_clipping' in settings:
+            self.settings.adaptive_rho_enable_clipping = 1 if settings.pop('adaptive_rho_enable_clipping') else 0
+
         self._solver = self.ext.TinySolver(self.A, self.B, self.Q, self.R, self.rho,
                                            self.nx, self.nu, self.N,
                                            self.x_min, self.x_max, self.u_min, self.u_max,
@@ -217,3 +229,177 @@ class TinyMPC:
         )
 
         assert status == 0, "Code generation failed"
+
+    def codegen_with_sensitivity(self, codegen_folder, dK, dP, dC1, dC2, verbose=False):
+        """Generate code with sensitivity matrices for adaptive rho.
+        
+        Args:
+            codegen_folder (str): Output directory for generated code
+            dK (np.ndarray): Derivative of feedback gain w.r.t. rho
+            dP (np.ndarray): Derivative of value function w.r.t. rho
+            dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
+            dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
+            verbose (bool): Whether to print debug information
+        """
+        codegen_folder_abs = os.path.abspath(codegen_folder)
+
+        # Clean the output directory first
+        if os.path.exists(codegen_folder_abs):
+            shutil.rmtree(codegen_folder_abs)
+        os.makedirs(codegen_folder_abs)
+
+        # Set sensitivity matrices in the solver
+        # Convert verbose bool to int for C++
+        verbose_int = 1 if verbose else 0
+        
+        # Ensure matrices are in Fortran-contiguous order
+        dK_f = np.asfortranarray(dK)
+        dP_f = np.asfortranarray(dP)
+        dC1_f = np.asfortranarray(dC1)
+        dC2_f = np.asfortranarray(dC2)
+        
+        # Set sensitivity matrices
+        self.set_sensitivity_matrices(dK_f, dP_f, dC1_f, dC2_f)
+        
+        # Generate code with sensitivity matrices
+        status = self._solver.codegen_with_sensitivity(codegen_folder_abs, dK_f, dP_f, dC1_f, dC2_f, verbose_int)
+        
+        # Copy include/* and tinympc/ files
+        try:
+            handle = importlib.resources.files('tinympc.codegen').joinpath('codegen_src')
+        except AttributeError:
+            handle = importlib.resources.path('tinympc.codegen', 'codegen_src')
+        with handle as codegen_src_path:
+            shutil.copytree(codegen_src_path, codegen_folder_abs, dirs_exist_ok=True)
+        
+        # Copy pywrapper files
+        try:
+            handle = importlib.resources.files('tinympc.codegen').joinpath('pywrapper')
+        except AttributeError:
+            handle = importlib.resources.path('tinympc.codegen', 'pywrapper')
+        with handle as pywrapper_src_path:
+            shutil.copy(pywrapper_src_path.joinpath('bindings.cpp'), codegen_folder_abs)
+            shutil.copy(pywrapper_src_path.joinpath('CMakeLists.txt'), codegen_folder_abs)
+            shutil.copy(pywrapper_src_path.joinpath('setup.py'), codegen_folder_abs)
+
+        # Compile python module
+        subprocess.check_call(
+            [
+                sys.executable,
+                'setup.py',
+                'build_ext',
+                '--inplace',
+            ],
+            cwd=codegen_folder_abs,
+        )
+
+        assert status == 0, "Code generation with sensitivity matrices failed"
+
+    def set_sensitivity_matrices(self, dK, dP, dC1, dC2):
+        """Set sensitivity matrices for adaptive rho behavior
+        
+        Args:
+            dK (np.ndarray): Derivative of feedback gain w.r.t. rho
+            dP (np.ndarray): Derivative of value function w.r.t. rho
+            dC1 (np.ndarray): Derivative of first cache matrix w.r.t. rho
+            dC2 (np.ndarray): Derivative of second cache matrix w.r.t. rho
+        """
+        # Validate input dimensions
+        assert dK.shape == (self.nu, self.nx), f"dK should have shape ({self.nu}, {self.nx}), got {dK.shape}"
+        assert dP.shape == (self.nx, self.nx), f"dP should have shape ({self.nx}, {self.nx}), got {dP.shape}"
+        assert dC1.shape == (self.nu, self.nu), f"dC1 should have shape ({self.nu}, {self.nu}), got {dC1.shape}"
+        assert dC2.shape == (self.nx, self.nx), f"dC2 should have shape ({self.nx}, {self.nx}), got {dC2.shape}"
+        
+        # Ensure matrices are in Fortran-contiguous order for C++ compatibility
+        dK_f = np.asfortranarray(dK)
+        dP_f = np.asfortranarray(dP)
+        dC1_f = np.asfortranarray(dC1)
+        dC2_f = np.asfortranarray(dC2)
+        
+        # Pass to the C++ solver with default values for rho and verbose
+        self._solver.set_sensitivity_matrices(dK_f, dP_f, dC1_f, dC2_f)
+        
+        if self.verbose:
+            print(f"Sensitivity matrices set with norms: dK={np.linalg.norm(dK):.6f}, dP={np.linalg.norm(dP):.6f}, dC1={np.linalg.norm(dC1):.6f}, dC2={np.linalg.norm(dC2):.6f}")
+
+    def compute_cache_terms(self):
+        """Compute cache terms for ADMM solver"""
+        if self._solver is None:
+            raise RuntimeError("Solver not initialized. Call setup() first.")
+        
+        # Add rho regularization
+        Q_rho = self.Q + self.rho * np.eye(self.nx)
+        R_rho = self.R + self.rho * np.eye(self.nu)
+        
+        # Initialize
+        Kinf = np.zeros((self.nu, self.nx))
+        Pinf = np.copy(self.Q)
+        
+        # Compute infinite horizon solution
+        for _ in range(5000):
+            Kinf_prev = np.copy(Kinf)
+            Kinf = np.linalg.solve(
+                R_rho + self.B.T @ Pinf @ self.B + 1e-8*np.eye(self.nu),
+                self.B.T @ Pinf @ self.A
+            )
+            Pinf = Q_rho + self.A.T @ Pinf @ (self.A - self.B @ Kinf)
+            
+            if np.linalg.norm(Kinf - Kinf_prev) < 1e-10:
+                break
+        
+        AmBKt = (self.A - self.B @ Kinf).T
+        Quu_inv = np.linalg.inv(R_rho + self.B.T @ Pinf @ self.B)
+        
+        # Set cache terms in the C++ solver
+        self._solver.set_cache_terms(
+            np.asfortranarray(Kinf),
+            np.asfortranarray(Pinf),
+            np.asfortranarray(Quu_inv),
+            np.asfortranarray(AmBKt),
+            self.verbose
+        )
+        
+        if self.verbose:
+            print(f"Cache terms computed with norms: Kinf={np.linalg.norm(Kinf):.6f}, Pinf={np.linalg.norm(Pinf):.6f}")
+            print(f"C1={np.linalg.norm(Quu_inv):.6f}, C2={np.linalg.norm(AmBKt):.6f}")
+        
+        return Kinf, Pinf, Quu_inv, AmBKt
+
+    def compute_sensitivity_autograd(self):
+        """Compute dK, dP, dC1, dC2 with respect to rho using Autograd's jacobian."""
+        # Local imports to avoid hard dependency unless this method is called
+        from autograd import jacobian
+        import autograd.numpy as anp
+
+        # Define the vectorized LQR solution mapping rho -> [K,P,C1,C2].flatten()
+        def lqr_flat(rho):
+            R_rho = anp.array(self.R) + rho * anp.eye(self.nu)
+            Q_rho = anp.array(self.Q) + rho * anp.eye(self.nx)
+            P = Q_rho
+            for _ in range(5000):
+                K = anp.linalg.solve(
+                    R_rho + self.B.T @ P @ self.B + 1e-8 * anp.eye(self.nu),
+                    self.B.T @ P @ self.A
+                )
+                P = Q_rho + self.A.T @ P @ (self.A - self.B @ K)
+            K = anp.linalg.solve(
+                R_rho + self.B.T @ P @ self.B + 1e-8 * anp.eye(self.nu),
+                self.B.T @ P @ self.A
+            )
+            C1 = anp.linalg.inv(R_rho + self.B.T @ P @ self.B)
+            C2 = (self.A - self.B @ K).T
+            return anp.concatenate([K.flatten(), P.flatten(), C1.flatten(), C2.flatten()])
+
+        # Compute the Jacobian w.r.t. rho
+        jac = jacobian(lqr_flat)
+        vec = jac(self.rho)
+
+        # Split derivative vector into four blocks
+        m, n = self.nu, self.nx
+        sizes = [m * n, n * n, m * m, n * n]
+        parts = np.split(np.array(vec), np.cumsum(sizes)[:-1])
+        dK = parts[0].reshape(m, n)
+        dP = parts[1].reshape(n, n)
+        dC1 = parts[2].reshape(m, m)
+        dC2 = parts[3].reshape(n, n)
+        return dK, dP, dC1, dC2

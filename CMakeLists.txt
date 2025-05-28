@@ -15,7 +15,7 @@ list(APPEND CMAKE_MESSAGE_INDENT "  ")
 FetchContent_Declare(
   tinympc
   GIT_REPOSITORY https://github.com/TinyMPC/TinyMPC.git
-  GIT_TAG 50bfaf3883621cec005c3e3b35ebabc22bb9ed55
+  GIT_TAG main
 )
 list(POP_BACK CMAKE_MESSAGE_INDENT)
 FetchContent_MakeAvailable(tinympc)
@@ -25,6 +25,7 @@ FetchContent_MakeAvailable(tinympc)
 pybind11_add_module(ext_tinympc src/bindings.cpp)
 install(TARGETS ext_tinympc DESTINATION . COMPONENT python)
 
-
+install(TARGETS ext_tinympc DESTINATION . COMPONENT python)
 target_link_libraries(ext_tinympc PUBLIC pybind11::module tinympcstatic)
+
 

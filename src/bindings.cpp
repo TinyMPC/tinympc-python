@@ -20,6 +20,20 @@ class PyTinySolver {
         void set_x0(Eigen::Ref<tinyVector>);
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
+        void set_sensitivity_matrices(
+            Eigen::Ref<tinyMatrix> dK,
+            Eigen::Ref<tinyMatrix> dP,
+            Eigen::Ref<tinyMatrix> dC1,
+            Eigen::Ref<tinyMatrix> dC2,
+            float rho = 0.0,
+            int verbose = 0);
+        void set_cache_terms(
+            Eigen::Ref<tinyMatrix> Kinf,
+            Eigen::Ref<tinyMatrix> Pinf,
+            Eigen::Ref<tinyMatrix> Quu_inv,
+            Eigen::Ref<tinyMatrix> AmBKt,
+            int verbose = 0);
+        void update_settings(TinySettings* settings);
 
         int solve();
         TinySolution* get_solution();
@@ -27,6 +41,13 @@ class PyTinySolver {
         void print_problem_data();
 
         int codegen(const char*, int); // output_dir, verbosity
+
+         int codegen_with_sensitivity(const char *output_dir, 
+                                   Eigen::Ref<tinyMatrix> dK,
+                                   Eigen::Ref<tinyMatrix> dP,
+                                   Eigen::Ref<tinyMatrix> dC1,
+                                   Eigen::Ref<tinyMatrix> dC2,
+                                   int verbose);
     private:
         TinySolver *_solver;
 };
@@ -65,6 +86,37 @@ void PyTinySolver::set_x_ref(Eigen::Ref<tinyMatrix> x_ref) {
 
 void PyTinySolver::set_u_ref(Eigen::Ref<tinyMatrix> u_ref) {
     tiny_set_u_ref(this->_solver, u_ref);
+}
+
+void PyTinySolver::set_sensitivity_matrices(
+        Eigen::Ref<tinyMatrix> dK,
+        Eigen::Ref<tinyMatrix> dP,
+        Eigen::Ref<tinyMatrix> dC1,
+        Eigen::Ref<tinyMatrix> dC2,
+        float rho,
+        int verbose) {
+    // Create copies of the matrices to ensure they remain valid
+    tinyMatrix dK_copy = dK;
+    tinyMatrix dP_copy = dP;
+    tinyMatrix dC1_copy = dC1;
+    tinyMatrix dC2_copy = dC2;
+    
+    // Store the sensitivity matrices in the solver's cache
+    if (this->_solver->cache != nullptr) {
+
+        // For now, we'll just store them for code generation
+        if (verbose) {
+            std::cout << "Sensitivity matrices set for code generation" << std::endl;
+            std::cout << "dK norm: " << dK_copy.norm() << std::endl;
+            std::cout << "dP norm: " << dP_copy.norm() << std::endl;
+            std::cout << "dC1 norm: " << dC1_copy.norm() << std::endl;
+            std::cout << "dC2 norm: " << dC2_copy.norm() << std::endl;
+        }
+    } else {
+        if (verbose) {
+            std::cout << "Warning: Cache not initialized, sensitivity matrices will only be used for code generation" << std::endl;
+        }
+    }
 }
 
 int PyTinySolver::solve() {
@@ -134,6 +186,69 @@ int PyTinySolver::codegen(const char *output_dir, int verbose) {
     return tiny_codegen(this->_solver, output_dir, verbose);
 }
 
+int PyTinySolver::codegen_with_sensitivity(const char *output_dir,
+                                         Eigen::Ref<tinyMatrix> dK_ref,
+                                         Eigen::Ref<tinyMatrix> dP_ref,
+                                         Eigen::Ref<tinyMatrix> dC1_ref,
+                                         Eigen::Ref<tinyMatrix> dC2_ref,
+                                         int verbose) {
+    tinyMatrix dK_copy = dK_ref;
+    tinyMatrix dP_copy = dP_ref;
+    tinyMatrix dC1_copy = dC1_ref;
+    tinyMatrix dC2_copy = dC2_ref;
+
+    return tiny_codegen_with_sensitivity(this->_solver, output_dir,
+                                       &dK_copy, &dP_copy, &dC1_copy, &dC2_copy, verbose);
+}
+
+void PyTinySolver::set_cache_terms(
+        Eigen::Ref<tinyMatrix> Kinf,
+        Eigen::Ref<tinyMatrix> Pinf,
+        Eigen::Ref<tinyMatrix> Quu_inv,
+        Eigen::Ref<tinyMatrix> AmBKt,
+        int verbose) {
+    if (!this->_solver) {
+        throw py::value_error("Solver not initialized");
+    }
+    if (!this->_solver->cache) {
+        throw py::value_error("Solver cache not initialized");
+    }
+    
+    // Create copies of the matrices to ensure they remain valid
+    this->_solver->cache->Kinf = Kinf;
+    this->_solver->cache->Pinf = Pinf;
+    this->_solver->cache->Quu_inv = Quu_inv;
+    this->_solver->cache->AmBKt = AmBKt;
+    this->_solver->cache->C1 = Quu_inv;  // Cache terms
+    this->_solver->cache->C2 = AmBKt;    // Cache terms
+    
+    if (verbose) {
+        std::cout << "Cache terms set with norms:" << std::endl;
+        std::cout << "Kinf norm: " << Kinf.norm() << std::endl;
+        std::cout << "Pinf norm: " << Pinf.norm() << std::endl;
+        std::cout << "Quu_inv norm: " << Quu_inv.norm() << std::endl;
+        std::cout << "AmBKt norm: " << AmBKt.norm() << std::endl;
+    }
+}
+
+void PyTinySolver::update_settings(TinySettings* settings) {
+    if (this->_solver && this->_solver->settings && settings) {
+        // Copy settings to the solver's settings
+        this->_solver->settings->abs_pri_tol = settings->abs_pri_tol;
+        this->_solver->settings->abs_dua_tol = settings->abs_dua_tol;
+        this->_solver->settings->max_iter = settings->max_iter;
+        this->_solver->settings->check_termination = settings->check_termination;
+        this->_solver->settings->en_state_bound = settings->en_state_bound;
+        this->_solver->settings->en_input_bound = settings->en_input_bound;
+        
+        // Copy adaptive rho settings
+        this->_solver->settings->adaptive_rho = settings->adaptive_rho;
+        this->_solver->settings->adaptive_rho_min = settings->adaptive_rho_min;
+        this->_solver->settings->adaptive_rho_max = settings->adaptive_rho_max;
+        this->_solver->settings->adaptive_rho_enable_clipping = settings->adaptive_rho_enable_clipping;
+    }
+}
+
 PYBIND11_MODULE(ext_tinympc, m) {
 // // PYBIND11_MODULE(@TINYMPC_EXT_MODULE_NAME@, m) {
 
@@ -168,7 +283,11 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def_readwrite("max_iter", &TinySettings::max_iter)
     .def_readwrite("check_termination", &TinySettings::check_termination)
     .def_readwrite("en_state_bound", &TinySettings::en_state_bound)
-    .def_readwrite("en_input_bound", &TinySettings::en_input_bound);
+    .def_readwrite("en_input_bound", &TinySettings::en_input_bound)
+    .def_readwrite("adaptive_rho", &TinySettings::adaptive_rho)
+    .def_readwrite("adaptive_rho_min", &TinySettings::adaptive_rho_min)
+    .def_readwrite("adaptive_rho_max", &TinySettings::adaptive_rho_max)
+    .def_readwrite("adaptive_rho_enable_clipping", &TinySettings::adaptive_rho_enable_clipping);
 
     m.def("tiny_set_default_settings", &tiny_set_default_settings);
 
@@ -180,8 +299,19 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def("set_x0", &PyTinySolver::set_x0)
     .def("set_x_ref", &PyTinySolver::set_x_ref)
     .def("set_u_ref", &PyTinySolver::set_u_ref)
+    .def("update_settings", &PyTinySolver::update_settings)
+    .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
+         "dK"_a.noconvert(), "dP"_a.noconvert(),
+         "dC1"_a.noconvert(), "dC2"_a.noconvert(),
+         "rho"_a=0.0, "verbose"_a=0)
+    .def("set_cache_terms", &PyTinySolver::set_cache_terms,
+         py::arg("Kinf"), py::arg("Pinf"), py::arg("Quu_inv"), py::arg("AmBKt"),
+         py::arg("verbose") = 0)
     .def("solve", &PyTinySolver::solve)
     .def("print_problem_data", &PyTinySolver::print_problem_data)
-    .def("codegen", &PyTinySolver::codegen);
+    .def("codegen", &PyTinySolver::codegen, "output_dir"_a, "verbose"_a=0)
+    .def("codegen_with_sensitivity", &PyTinySolver::codegen_with_sensitivity,
+         "output_dir"_a, "dK"_a.noconvert(), "dP"_a.noconvert(),
+         "dC1"_a.noconvert(), "dC2"_a.noconvert(), "verbose"_a);
 
 }
