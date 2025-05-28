@@ -243,10 +243,11 @@ class TinyMPC:
         """
         codegen_folder_abs = os.path.abspath(codegen_folder)
 
-        # Create codegen files with sensitivity matrices
-        if not codegen_folder_abs.endswith(os.path.sep):
-            codegen_folder_abs += os.path.sep
-            
+        # Clean the output directory first
+        if os.path.exists(codegen_folder_abs):
+            shutil.rmtree(codegen_folder_abs)
+        os.makedirs(codegen_folder_abs)
+
         # Set sensitivity matrices in the solver
         # Convert verbose bool to int for C++
         verbose_int = 1 if verbose else 0
