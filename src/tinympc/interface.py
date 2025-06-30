@@ -73,7 +73,7 @@ class TinyMPC:
         return array_
 
     # Setup the problem data and solver options
-    def setup(self, A, B, Q, R, N, rho=1.0,
+    def setup(self, A, B, Q, R, N, rho=1.0, fdyn=None,
         x_min=None, x_max=None, u_min=None, u_max=None, verbose=False, **settings):
         """Instantiate necessary algorithm variables and parameters
         
@@ -81,7 +81,8 @@ class TinyMPC:
         :param B (np.ndarray): Input matrix of the linear system, size nx x nu
         :param Q (np.ndarray): Stage cost for state, must be diagonal and positive semi-definite, size nx x nx
         :param R (np.ndarray): Stage cost for input, must be diagonal and positive definite, size nu x nu
-        :param rho (int, optional): Penalty term used in ADMM, default 1
+        :param rho (float, optional): Penalty term used in ADMM, default 1.0
+        :param fdyn (np.ndarray or None, optional): Affine offset vector for dynamics, size nx x 1. If None, defaults to zeros (linear system), default None
         :param x_min (list[float] or None, optional): Lower bound state constraints of the same length as nx, default None
         :param x_max (list[float] or None, optional): Upper bound state constraints of the same length as nx, default None
         :param u_min (list[float] or None, optional): Lower bound input constraints of the same length as nu, default None
@@ -109,6 +110,11 @@ class TinyMPC:
 
         self.nx = A.shape[0]
         self.nu = B.shape[1]
+
+        # Handle fdyn parameter - default to zeros for linear systems
+        if fdyn is None:
+            fdyn = np.zeros((self.nx, 1))
+        self.fdyn = np.array(fdyn, order="F")
 
         assert N > 1
         self.N = N
@@ -149,7 +155,7 @@ class TinyMPC:
         if 'adaptive_rho_enable_clipping' in settings:
             self.settings.adaptive_rho_enable_clipping = 1 if settings.pop('adaptive_rho_enable_clipping') else 0
 
-        self._solver = self.ext.TinySolver(self.A, self.B, self.Q, self.R, self.rho,
+        self._solver = self.ext.TinySolver(self.A, self.B, self.fdyn, self.Q, self.R, self.rho,
                                            self.nx, self.nu, self.N,
                                            self.x_min, self.x_max, self.u_min, self.u_max,
                                            self.settings, self.verbose

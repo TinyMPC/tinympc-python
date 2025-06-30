@@ -11,21 +11,23 @@ using namespace pybind11::literals;
 
 class PyTinySolver {
     public:
-        PyTinySolver(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // A, B
+        PyTinySolver(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // A, B, fdyn
                      Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // Q, R
-                     float, int, int, int,               // rho, nx, nu, N
+                     double, int, int, int,                          // rho, nx, nu, N
                      Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // x_min, x_max
                      Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // u_min, u_max
                      TinySettings*, int); // settings, verbosity
         void set_x0(Eigen::Ref<tinyVector>);
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
+        void set_bound_constraints(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>,
+                                  Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>); 
         void set_sensitivity_matrices(
             Eigen::Ref<tinyMatrix> dK,
             Eigen::Ref<tinyMatrix> dP,
             Eigen::Ref<tinyMatrix> dC1,
             Eigen::Ref<tinyMatrix> dC2,
-            float rho = 0.0,
+            double rho = 0.0,  // CHANGED: float -> double
             int verbose = 0);
         void set_cache_terms(
             Eigen::Ref<tinyMatrix> Kinf,
@@ -55,9 +57,10 @@ class PyTinySolver {
 PyTinySolver::PyTinySolver(
         Eigen::Ref<tinyMatrix> A,
         Eigen::Ref<tinyMatrix> B,
+        Eigen::Ref<tinyMatrix> fdyn,
         Eigen::Ref<tinyMatrix> Q,
         Eigen::Ref<tinyMatrix> R,
-        float rho,
+        double rho,
         int nx,
         int nu,
         int N,
@@ -68,7 +71,14 @@ PyTinySolver::PyTinySolver(
         TinySettings *settings,
         int verbose) {
 
-    int status = tiny_setup(&this->_solver, A, B, Q, R, rho, nx, nu, N, x_min, x_max, u_min, u_max, verbose);
+    
+    int status = tiny_setup(&this->_solver, A, B, fdyn, Q, R, rho, nx, nu, N, verbose);
+    
+    
+    if (status == 0) {
+        status = tiny_set_bound_constraints(this->_solver, x_min, x_max, u_min, u_max);
+    }
+    
     this->_solver->settings = settings;
     if (status) {
         std::string message = "Error during setup";
@@ -88,12 +98,20 @@ void PyTinySolver::set_u_ref(Eigen::Ref<tinyMatrix> u_ref) {
     tiny_set_u_ref(this->_solver, u_ref);
 }
 
+void PyTinySolver::set_bound_constraints(Eigen::Ref<tinyMatrix> x_min, Eigen::Ref<tinyMatrix> x_max,
+                                        Eigen::Ref<tinyMatrix> u_min, Eigen::Ref<tinyMatrix> u_max) {
+    int status = tiny_set_bound_constraints(this->_solver, x_min, x_max, u_min, u_max);
+    if (status) {
+        throw py::value_error("Error setting bound constraints");
+    }
+}
+
 void PyTinySolver::set_sensitivity_matrices(
         Eigen::Ref<tinyMatrix> dK,
         Eigen::Ref<tinyMatrix> dP,
         Eigen::Ref<tinyMatrix> dC1,
         Eigen::Ref<tinyMatrix> dC2,
-        float rho,
+        double rho,
         int verbose) {
     // Create copies of the matrices to ensure they remain valid
     tinyMatrix dK_copy = dK;
@@ -293,12 +311,13 @@ PYBIND11_MODULE(ext_tinympc, m) {
 
     // Solver
     py::class_<PyTinySolver>(m, "TinySolver", py::module_local())
-    .def(py::init<Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, float, int, int, int, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, TinySettings*, int>(),
-            "A"_a.noconvert(), "B"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert(), "settings"_a, "verbose"_a)
+    .def(py::init<Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, double, int, int, int, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, TinySettings*, int>(),
+            "A"_a.noconvert(), "B"_a.noconvert(), "fdyn"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert(), "settings"_a, "verbose"_a)
     .def_property_readonly("solution", &PyTinySolver::get_solution)
     .def("set_x0", &PyTinySolver::set_x0)
     .def("set_x_ref", &PyTinySolver::set_x_ref)
     .def("set_u_ref", &PyTinySolver::set_u_ref)
+    .def("set_bound_constraints", &PyTinySolver::set_bound_constraints)
     .def("update_settings", &PyTinySolver::update_settings)
     .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
          "dK"_a.noconvert(), "dP"_a.noconvert(),
