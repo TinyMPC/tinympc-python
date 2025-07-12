@@ -8,10 +8,12 @@ pip install tinympc
 
 For development installation (optional):
 ```bash
-git clone https://github.com/TinyMPC/tinympc-python.git
+git clone --recurse-submodules https://github.com/TinyMPC/tinympc-python.git
 cd tinympc-python
 pip install -e .
 ```
+*Note: If you cloned without `--recurse-submodules`, run `git submodule update --init --recursive` to fetch the TinyMPC sources.*
+
 
 ## Examples
 
