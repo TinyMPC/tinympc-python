@@ -12,13 +12,9 @@ find_package(pybind11 CONFIG REQUIRED)
 
 message(STATUS "Fetching/configuring TinyMPC")
 list(APPEND CMAKE_MESSAGE_INDENT "  ")
-FetchContent_Declare(
-  tinympc
-  GIT_REPOSITORY https://github.com/TinyMPC/TinyMPC.git
-  GIT_TAG main
-)
+# --- TinyMPC -------------------------------------------------
+add_subdirectory(tinympc/TinyMPC tinympc_build)
 list(POP_BACK CMAKE_MESSAGE_INDENT)
-FetchContent_MakeAvailable(tinympc)
 
 # configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/bindings.cpp.in
 #                ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings.cpp)
