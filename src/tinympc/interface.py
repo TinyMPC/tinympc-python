@@ -409,3 +409,39 @@ class TinyMPC:
         dC1 = parts[2].reshape(m, m)
         dC2 = parts[3].reshape(n, n)
         return dK, dP, dC1, dC2
+
+    def set_linear_constraints(self, Alin_x, blin_x, Alin_u, blin_u):
+        """Set linear constraints: Alin_x * x <= blin_x, Alin_u * u <= blin_u"""
+        # Convert to proper format and ensure column vectors
+        Alin_x = np.asfortranarray(Alin_x, dtype=np.float64)
+        Alin_u = np.asfortranarray(Alin_u, dtype=np.float64)
+        blin_x = np.asfortranarray(blin_x, dtype=np.float64).reshape(-1, 1)
+        blin_u = np.asfortranarray(blin_u, dtype=np.float64).reshape(-1, 1)
+        
+        self._solver.set_linear_constraints(Alin_x, blin_x, Alin_u, blin_u)
+
+    def set_cone_constraints(self, Acx, qcx, cx, Acu, qcu, cu):
+        """Set second-order cone constraints"""
+        # Convert to proper types
+        Acx = np.ascontiguousarray(Acx, dtype=np.int32)
+        qcx = np.ascontiguousarray(qcx, dtype=np.int32)
+        cx = np.asfortranarray(cx, dtype=np.float64)
+        Acu = np.ascontiguousarray(Acu, dtype=np.int32)
+        qcu = np.ascontiguousarray(qcu, dtype=np.int32)
+        cu = np.asfortranarray(cu, dtype=np.float64)
+        
+        self._solver.set_cone_constraints(Acx, qcx, cx, Acu, qcu, cu)
+
+    def set_equality_constraints(self, Aeq_x, beq_x, Aeq_u=None, beq_u=None):
+        """Set equality constraints: Aeq_x * x == beq_x, Aeq_u * u == beq_u"""
+        # Create dual inequalities: Ax <= b and -Ax <= -b
+        if Aeq_u is None:
+            Aeq_u = np.zeros((0, self.nu))
+            beq_u = np.zeros(0)
+        
+        Alin_x = np.vstack([Aeq_x, -Aeq_x])
+        blin_x = np.concatenate([beq_x, -beq_x])
+        Alin_u = np.vstack([Aeq_u, -Aeq_u])
+        blin_u = np.concatenate([beq_u, -beq_u])
+        
+        self.set_linear_constraints(Alin_x, blin_x, Alin_u, blin_u)

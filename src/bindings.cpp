@@ -21,7 +21,11 @@ class PyTinySolver {
         void set_x_ref(Eigen::Ref<tinyMatrix>);
         void set_u_ref(Eigen::Ref<tinyMatrix>);
         void set_bound_constraints(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>,
-                                  Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>); 
+                                  Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>);
+        void set_linear_constraints(Eigen::Ref<tinyMatrix> Alin_x, Eigen::Ref<tinyVector> blin_x,
+                                   Eigen::Ref<tinyMatrix> Alin_u, Eigen::Ref<tinyVector> blin_u);
+        void set_cone_constraints(Eigen::Ref<Eigen::VectorXi> Acx, Eigen::Ref<Eigen::VectorXi> qcx, Eigen::Ref<tinyVector> cx,
+                                 Eigen::Ref<Eigen::VectorXi> Acu, Eigen::Ref<Eigen::VectorXi> qcu, Eigen::Ref<tinyVector> cu);
         void set_sensitivity_matrices(
             Eigen::Ref<tinyMatrix> dK,
             Eigen::Ref<tinyMatrix> dP,
@@ -103,6 +107,22 @@ void PyTinySolver::set_bound_constraints(Eigen::Ref<tinyMatrix> x_min, Eigen::Re
     int status = tiny_set_bound_constraints(this->_solver, x_min, x_max, u_min, u_max);
     if (status) {
         throw py::value_error("Error setting bound constraints");
+    }
+}
+
+void PyTinySolver::set_linear_constraints(Eigen::Ref<tinyMatrix> Alin_x, Eigen::Ref<tinyVector> blin_x,
+                                         Eigen::Ref<tinyMatrix> Alin_u, Eigen::Ref<tinyVector> blin_u) {
+    int status = tiny_set_linear_constraints(this->_solver, Alin_x, blin_x, Alin_u, blin_u);
+    if (status) {
+        throw py::value_error("Error setting linear constraints");
+    }
+}
+
+void PyTinySolver::set_cone_constraints(Eigen::Ref<Eigen::VectorXi> Acx, Eigen::Ref<Eigen::VectorXi> qcx, Eigen::Ref<tinyVector> cx,
+                                       Eigen::Ref<Eigen::VectorXi> Acu, Eigen::Ref<Eigen::VectorXi> qcu, Eigen::Ref<tinyVector> cu) {
+    int status = tiny_set_cone_constraints(this->_solver, Acx, qcx, cx, Acu, qcu, cu);
+    if (status) {
+        throw py::value_error("Error setting cone constraints");
     }
 }
 
@@ -318,6 +338,12 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def("set_x_ref", &PyTinySolver::set_x_ref)
     .def("set_u_ref", &PyTinySolver::set_u_ref)
     .def("set_bound_constraints", &PyTinySolver::set_bound_constraints)
+    .def("set_linear_constraints", &PyTinySolver::set_linear_constraints,
+         "Alin_x"_a.noconvert(), "blin_x"_a.noconvert(),
+         "Alin_u"_a.noconvert(), "blin_u"_a.noconvert())
+    .def("set_cone_constraints", &PyTinySolver::set_cone_constraints,
+         "Acx"_a.noconvert(), "qcx"_a.noconvert(), "cx"_a.noconvert(),
+         "Acu"_a.noconvert(), "qcu"_a.noconvert(), "cu"_a.noconvert())
     .def("update_settings", &PyTinySolver::update_settings)
     .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
          "dK"_a.noconvert(), "dP"_a.noconvert(),
