@@ -420,17 +420,17 @@ class TinyMPC:
         
         self._solver.set_linear_constraints(Alin_x, blin_x, Alin_u, blin_u)
 
-    def set_cone_constraints(self, Acx, qcx, cx, Acu, qcu, cu):
-        """Set second-order cone constraints"""
+    def set_cone_constraints(self, Acu, qcu, cu, Acx, qcx, cx):
+        """Set second-order cone constraints (inputs first, then states)"""
         # Convert to proper types
-        Acx = np.ascontiguousarray(Acx, dtype=np.int32)
-        qcx = np.ascontiguousarray(qcx, dtype=np.int32)
-        cx = np.asfortranarray(cx, dtype=np.float64)
         Acu = np.ascontiguousarray(Acu, dtype=np.int32)
         qcu = np.ascontiguousarray(qcu, dtype=np.int32)
         cu = np.asfortranarray(cu, dtype=np.float64)
+        Acx = np.ascontiguousarray(Acx, dtype=np.int32)
+        qcx = np.ascontiguousarray(qcx, dtype=np.int32)
+        cx = np.asfortranarray(cx, dtype=np.float64)
         
-        self._solver.set_cone_constraints(Acx, qcx, cx, Acu, qcu, cu)
+        self._solver.set_cone_constraints(Acu, qcu, cu, Acx, qcx, cx)
 
     def set_equality_constraints(self, Aeq_x, beq_x, Aeq_u=None, beq_u=None):
         """Set equality constraints: Aeq_x * x == beq_x, Aeq_u * u == beq_u"""

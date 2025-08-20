@@ -24,8 +24,8 @@ class PyTinySolver {
                                   Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>);
         void set_linear_constraints(Eigen::Ref<tinyMatrix> Alin_x, Eigen::Ref<tinyVector> blin_x,
                                    Eigen::Ref<tinyMatrix> Alin_u, Eigen::Ref<tinyVector> blin_u);
-        void set_cone_constraints(Eigen::Ref<Eigen::VectorXi> Acx, Eigen::Ref<Eigen::VectorXi> qcx, Eigen::Ref<tinyVector> cx,
-                                 Eigen::Ref<Eigen::VectorXi> Acu, Eigen::Ref<Eigen::VectorXi> qcu, Eigen::Ref<tinyVector> cu);
+        void set_cone_constraints(Eigen::Ref<Eigen::VectorXi> Acu, Eigen::Ref<Eigen::VectorXi> qcu, Eigen::Ref<tinyVector> cu,
+                                 Eigen::Ref<Eigen::VectorXi> Acx, Eigen::Ref<Eigen::VectorXi> qcx, Eigen::Ref<tinyVector> cx);
         void set_sensitivity_matrices(
             Eigen::Ref<tinyMatrix> dK,
             Eigen::Ref<tinyMatrix> dP,
@@ -118,9 +118,9 @@ void PyTinySolver::set_linear_constraints(Eigen::Ref<tinyMatrix> Alin_x, Eigen::
     }
 }
 
-void PyTinySolver::set_cone_constraints(Eigen::Ref<Eigen::VectorXi> Acx, Eigen::Ref<Eigen::VectorXi> qcx, Eigen::Ref<tinyVector> cx,
-                                       Eigen::Ref<Eigen::VectorXi> Acu, Eigen::Ref<Eigen::VectorXi> qcu, Eigen::Ref<tinyVector> cu) {
-    int status = tiny_set_cone_constraints(this->_solver, Acx, qcx, cx, Acu, qcu, cu);
+void PyTinySolver::set_cone_constraints(Eigen::Ref<Eigen::VectorXi> Acu, Eigen::Ref<Eigen::VectorXi> qcu, Eigen::Ref<tinyVector> cu,
+                                       Eigen::Ref<Eigen::VectorXi> Acx, Eigen::Ref<Eigen::VectorXi> qcx, Eigen::Ref<tinyVector> cx) {
+    int status = tiny_set_cone_constraints(this->_solver, Acu, qcu, cu, Acx, qcx, cx);
     if (status) {
         throw py::value_error("Error setting cone constraints");
     }
@@ -342,8 +342,8 @@ PYBIND11_MODULE(ext_tinympc, m) {
          "Alin_x"_a.noconvert(), "blin_x"_a.noconvert(),
          "Alin_u"_a.noconvert(), "blin_u"_a.noconvert())
     .def("set_cone_constraints", &PyTinySolver::set_cone_constraints,
-         "Acx"_a.noconvert(), "qcx"_a.noconvert(), "cx"_a.noconvert(),
-         "Acu"_a.noconvert(), "qcu"_a.noconvert(), "cu"_a.noconvert())
+         "Acu"_a.noconvert(), "qcu"_a.noconvert(), "cu"_a.noconvert(),
+         "Acx"_a.noconvert(), "qcx"_a.noconvert(), "cx"_a.noconvert())
     .def("update_settings", &PyTinySolver::update_settings)
     .def("set_sensitivity_matrices", &PyTinySolver::set_sensitivity_matrices,
          "dK"_a.noconvert(), "dP"_a.noconvert(),

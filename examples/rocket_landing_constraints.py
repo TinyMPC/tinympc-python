@@ -56,10 +56,10 @@ solver.setup(A, B, Q, R, NHORIZON, rho=1.0, fdyn=fdyn,
              x_min=x_min, x_max=x_max, u_min=u_min, u_max=u_max,
              max_iter=100, abs_pri_tol=2e-3, verbose=True)
 
-# Set cone constraints 
-solver.set_cone_constraints(Acx, qcx, cx, Acu, qcu, cu)
+# Set cone constraints (inputs first)
+solver.set_cone_constraints(Acu, qcu, cu, Acx, qcx, cx)
 
-# Initial and goal states (matching corrected C++ version)
+# Initial and goal states
 xinit = np.array([4.0, 2.0, 20.0, -3.0, 2.0, -4.5])
 xgoal = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
