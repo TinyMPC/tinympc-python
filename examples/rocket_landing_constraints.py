@@ -53,8 +53,10 @@ qcu = np.array([3])     # dimensions for input cones
 # Setup solver
 solver = tinympc.TinyMPC()
 solver.setup(A, B, Q, R, NHORIZON, rho=1.0, fdyn=fdyn,
-             x_min=x_min, x_max=x_max, u_min=u_min, u_max=u_max,
              max_iter=100, abs_pri_tol=2e-3, verbose=True)
+
+# Set bounds explicitly 
+solver.set_bound_constraints(x_min, x_max, u_min, u_max)
 
 # Set cone constraints (inputs first)
 solver.set_cone_constraints(Acu, qcu, cu, Acx, qcx, cx)

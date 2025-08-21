@@ -48,6 +48,14 @@ class TinyMPC:
             self.settings.en_state_bound = 1 if kwargs.pop('en_state_bound') else 0
         if 'en_input_bound' in kwargs:
             self.settings.en_input_bound = 1 if kwargs.pop('en_input_bound') else 0
+        if 'en_state_linear' in kwargs:
+            self.settings.en_state_linear = 1 if kwargs.pop('en_state_linear') else 0
+        if 'en_input_linear' in kwargs:
+            self.settings.en_input_linear = 1 if kwargs.pop('en_input_linear') else 0
+        if 'en_state_soc' in kwargs:
+            self.settings.en_state_soc = 1 if kwargs.pop('en_state_soc') else 0
+        if 'en_input_soc' in kwargs:
+            self.settings.en_input_soc = 1 if kwargs.pop('en_input_soc') else 0
 
         if self._solver is not None:
             self._solver.update_settings(self.settings)        
@@ -73,8 +81,7 @@ class TinyMPC:
         return array_
 
     # Setup the problem data and solver options
-    def setup(self, A, B, Q, R, N, rho=1.0, fdyn=None,
-        x_min=None, x_max=None, u_min=None, u_max=None, verbose=False, **settings):
+    def setup(self, A, B, Q, R, N, rho=1.0, fdyn=None, verbose=False, **settings):
         """Instantiate necessary algorithm variables and parameters
         
         :param A (np.ndarray): State transition matrix of the linear system, size nx x nx
@@ -120,30 +127,19 @@ class TinyMPC:
         self.N = N
 
 
-        self.x_min = np.array(self.expand_ndarray(x_min, self.nx, self.N, -self._infty), dtype=float, order="F")
-        self.x_max = np.array(self.expand_ndarray(x_max, self.nx, self.N, self._infty), dtype=float, order="F")
-        self.u_min = np.array(self.expand_ndarray(u_min, self.nu, self.N-1, -self._infty), dtype=float, order="F")
-        self.u_max = np.array(self.expand_ndarray(u_max, self.nu, self.N-1, self._infty), dtype=float, order="F")
-
-        assert len(self.x_min.shape) == 2
-        assert len(self.x_max.shape) == 2
-        assert len(self.u_min.shape) == 2
-        assert len(self.u_max.shape) == 2
-        assert self.x_min.shape[0] == self.nx
-        assert self.x_max.shape[0] == self.nx
-        assert self.u_min.shape[0] == self.nu
-        assert self.u_max.shape[0] == self.nu
-        assert self.x_min.shape[1] == self.N
-        assert self.x_max.shape[1] == self.N
-        assert self.u_min.shape[1] == self.N-1
-        assert self.u_max.shape[1] == self.N-1
-
         self.verbose = verbose
 
 
-        self.settings = self.ext.TinySettings() # instantiate local settings (settings known only to the python interface)
-        self.ext.tiny_set_default_settings(self.settings) # set local settings to default defined by C++ implementation
-        self.update_settings(**settings) # change local settings based on arguments available to the interface
+        self.settings = self.ext.TinySettings()
+        self.ext.tiny_set_default_settings(self.settings)
+        # Align with MATLAB/C++: keep all constraints disabled after setup
+        self.settings.en_state_bound = 0
+        self.settings.en_input_bound = 0
+        self.settings.en_state_linear = 0
+        self.settings.en_input_linear = 0
+        self.settings.en_state_soc = 0
+        self.settings.en_input_soc = 0
+        self.update_settings(**settings)
 
         # Add adaptive rho settings
         if 'adaptive_rho' in settings:
@@ -157,15 +153,21 @@ class TinyMPC:
 
         self._solver = self.ext.TinySolver(self.A, self.B, self.fdyn, self.Q, self.R, self.rho,
                                            self.nx, self.nu, self.N,
-                                           self.x_min, self.x_max, self.u_min, self.u_max,
-                                           self.settings, self.verbose
-        )
+                                           self.settings, self.verbose)
 
     def set_x0(self, x0):
         assert len(x0.shape) == 1
         assert len(x0) == self.nx
 
         self._solver.set_x0(x0)
+
+    def set_bound_constraints(self, x_min, x_max, u_min, u_max):
+        x_min = np.asfortranarray(self.expand_ndarray(x_min, self.nx, self.N, -self._infty))
+        x_max = np.asfortranarray(self.expand_ndarray(x_max, self.nx, self.N, self._infty))
+        u_min = np.asfortranarray(self.expand_ndarray(u_min, self.nu, self.N-1, -self._infty))
+        u_max = np.asfortranarray(self.expand_ndarray(u_max, self.nu, self.N-1, self._infty))
+        self._solver.set_bound_constraints(x_min, x_max, u_min, u_max)
+        self.update_settings(en_state_bound=True, en_input_bound=True)
     
     def set_x_ref(self, x_ref):
         """Set state reference trajectory
@@ -419,6 +421,8 @@ class TinyMPC:
         blin_u = np.asfortranarray(blin_u, dtype=np.float64).reshape(-1, 1)
         
         self._solver.set_linear_constraints(Alin_x, blin_x, Alin_u, blin_u)
+        self.update_settings(en_state_linear=Alin_x.size>0 and blin_x.size>0,
+                             en_input_linear=Alin_u.size>0 and blin_u.size>0)
 
     def set_cone_constraints(self, Acu, qcu, cu, Acx, qcx, cx):
         """Set second-order cone constraints (inputs first, then states)"""
@@ -431,6 +435,7 @@ class TinyMPC:
         cx = np.asfortranarray(cx, dtype=np.float64)
         
         self._solver.set_cone_constraints(Acu, qcu, cu, Acx, qcx, cx)
+        self.update_settings(en_input_soc=cu.size>0, en_state_soc=cx.size>0)
 
     def set_equality_constraints(self, Aeq_x, beq_x, Aeq_u=None, beq_u=None):
         """Set equality constraints: Aeq_x * x == beq_x, Aeq_u * u == beq_u"""

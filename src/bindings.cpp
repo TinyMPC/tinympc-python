@@ -14,8 +14,6 @@ class PyTinySolver {
         PyTinySolver(Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // A, B, fdyn
                      Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // Q, R
                      double, int, int, int,                          // rho, nx, nu, N
-                     Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // x_min, x_max
-                     Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, // u_min, u_max
                      TinySettings*, int); // settings, verbosity
         void set_x0(Eigen::Ref<tinyVector>);
         void set_x_ref(Eigen::Ref<tinyMatrix>);
@@ -68,21 +66,10 @@ PyTinySolver::PyTinySolver(
         int nx,
         int nu,
         int N,
-        Eigen::Ref<tinyMatrix> x_min,
-        Eigen::Ref<tinyMatrix> x_max,
-        Eigen::Ref<tinyMatrix> u_min,
-        Eigen::Ref<tinyMatrix> u_max,
         TinySettings *settings,
         int verbose) {
 
-    
     int status = tiny_setup(&this->_solver, A, B, fdyn, Q, R, rho, nx, nu, N, verbose);
-    
-    
-    if (status == 0) {
-        status = tiny_set_bound_constraints(this->_solver, x_min, x_max, u_min, u_max);
-    }
-    
     this->_solver->settings = settings;
     if (status) {
         std::string message = "Error during setup";
@@ -278,6 +265,10 @@ void PyTinySolver::update_settings(TinySettings* settings) {
         this->_solver->settings->check_termination = settings->check_termination;
         this->_solver->settings->en_state_bound = settings->en_state_bound;
         this->_solver->settings->en_input_bound = settings->en_input_bound;
+        this->_solver->settings->en_state_soc = settings->en_state_soc;
+        this->_solver->settings->en_input_soc = settings->en_input_soc;
+        this->_solver->settings->en_state_linear = settings->en_state_linear;
+        this->_solver->settings->en_input_linear = settings->en_input_linear;
         
         // Copy adaptive rho settings
         this->_solver->settings->adaptive_rho = settings->adaptive_rho;
@@ -322,6 +313,10 @@ PYBIND11_MODULE(ext_tinympc, m) {
     .def_readwrite("check_termination", &TinySettings::check_termination)
     .def_readwrite("en_state_bound", &TinySettings::en_state_bound)
     .def_readwrite("en_input_bound", &TinySettings::en_input_bound)
+    .def_readwrite("en_state_soc", &TinySettings::en_state_soc)
+    .def_readwrite("en_input_soc", &TinySettings::en_input_soc)
+    .def_readwrite("en_state_linear", &TinySettings::en_state_linear)
+    .def_readwrite("en_input_linear", &TinySettings::en_input_linear)
     .def_readwrite("adaptive_rho", &TinySettings::adaptive_rho)
     .def_readwrite("adaptive_rho_min", &TinySettings::adaptive_rho_min)
     .def_readwrite("adaptive_rho_max", &TinySettings::adaptive_rho_max)
@@ -331,8 +326,8 @@ PYBIND11_MODULE(ext_tinympc, m) {
 
     // Solver
     py::class_<PyTinySolver>(m, "TinySolver", py::module_local())
-    .def(py::init<Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, double, int, int, int, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, TinySettings*, int>(),
-            "A"_a.noconvert(), "B"_a.noconvert(), "fdyn"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "nx"_a, "nu"_a, "N"_a, "x_min"_a.noconvert(), "x_max"_a.noconvert(), "u_min"_a.noconvert(), "u_max"_a.noconvert(), "settings"_a, "verbose"_a)
+    .def(py::init<Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, Eigen::Ref<tinyMatrix>, double, int, int, int, TinySettings*, int>(),
+            "A"_a.noconvert(), "B"_a.noconvert(), "fdyn"_a.noconvert(), "Q"_a.noconvert(), "R"_a.noconvert(), "rho"_a, "nx"_a, "nu"_a, "N"_a, "settings"_a, "verbose"_a)
     .def_property_readonly("solution", &PyTinySolver::get_solution)
     .def("set_x0", &PyTinySolver::set_x0)
     .def("set_x_ref", &PyTinySolver::set_x_ref)
