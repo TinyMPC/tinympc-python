@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "tinympc"
-version = "0.0.6"
+version = "0.0.7"
 authors = [
   { name="Sam Schoedel", email="seschoedel@gmail.com" },
   { name="Khai Nguyen", email="khai.nx1201@gmail.com" },
