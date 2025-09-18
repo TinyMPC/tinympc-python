@@ -15,9 +15,11 @@ R = np.diag([1.0])
 N = 20
 
 prob = tinympc.TinyMPC()
+prob.setup(A, B, Q, R, N, rho=1, max_iter=10)
 
+# Optional bounds via new API
 u_min = np.array([-0.5])
 u_max = np.array([0.5])
-prob.setup(A, B, Q, R, N, rho=1, max_iter=10, u_min=u_min, u_max=u_max)
+prob.set_bound_constraints([], [], u_min, u_max)
 
 prob.codegen("out", verbose=1)
