@@ -81,19 +81,23 @@ class TinyMPC:
         return array_
 
     # Setup the problem data and solver options
-    def setup(self, A, B, Q, R, N, rho=1.0, fdyn=None, verbose=False, **settings):
+    def setup(self, A, B, Q, R, N, rho=1.0, fdyn=None, 
+              x_min=None, x_max=None, u_min=None, u_max=None, 
+              cone_constraints=None, verbose=False, **settings):
         """Instantiate necessary algorithm variables and parameters
         
         :param A (np.ndarray): State transition matrix of the linear system, size nx x nx
         :param B (np.ndarray): Input matrix of the linear system, size nx x nu
         :param Q (np.ndarray): Stage cost for state, must be diagonal and positive semi-definite, size nx x nx
         :param R (np.ndarray): Stage cost for input, must be diagonal and positive definite, size nu x nu
+        :param N (int): Prediction horizon length
         :param rho (float, optional): Penalty term used in ADMM, default 1.0
         :param fdyn (np.ndarray or None, optional): Affine offset vector for dynamics, size nx x 1. If None, defaults to zeros (linear system), default None
-        :param x_min (list[float] or None, optional): Lower bound state constraints of the same length as nx, default None
-        :param x_max (list[float] or None, optional): Upper bound state constraints of the same length as nx, default None
-        :param u_min (list[float] or None, optional): Lower bound input constraints of the same length as nu, default None
-        :param u_max (list[float] or None, optional): Upper bound input constraints of the same length as nu, default None
+        :param x_min (np.ndarray or None, optional): Lower bound state constraints, size nx or nx x N, default None
+        :param x_max (np.ndarray or None, optional): Upper bound state constraints, size nx or nx x N, default None  
+        :param u_min (np.ndarray or None, optional): Lower bound input constraints, size nu or nu x (N-1), default None
+        :param u_max (np.ndarray or None, optional): Upper bound input constraints, size nu or nu x (N-1), default None
+        :param cone_constraints (dict or None, optional): Cone constraints dict with keys {Acu, qcu, cu, Acx, qcx, cx}, default None
         :param verbose (bool): Whether or not to print data to console during setup, default False
         :params settings: Dictionary of optional settings
             :param abs_pri_tol (float): Solution tolerance for primal variables
@@ -154,6 +158,14 @@ class TinyMPC:
         self._solver = self.ext.TinySolver(self.A, self.B, self.fdyn, self.Q, self.R, self.rho,
                                            self.nx, self.nu, self.N,
                                            self.settings, self.verbose)
+
+        # Handle constraints if provided 
+        if any(x is not None for x in [x_min, x_max, u_min, u_max]):
+            self.set_bound_constraints(x_min, x_max, u_min, u_max)
+        
+        if cone_constraints is not None:
+            # cone_constraints should be a dict with keys: Acu, qcu, cu, Acx, qcx, cx
+            self.set_cone_constraints(**cone_constraints)
 
     def set_x0(self, x0):
         assert len(x0.shape) == 1

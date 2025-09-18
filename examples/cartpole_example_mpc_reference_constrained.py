@@ -18,12 +18,11 @@ R = np.diag([1.0])
 N = 20
 
 prob = tinympc.TinyMPC()
-prob.setup(A, B, Q, R, N, rho=1.0)
 
 # Define input constraints
 u_min = np.array([-0.45])
 u_max = np.array([0.45])
-prob.set_bound_constraints([], [], u_min, u_max)
+prob.setup(A, B, Q, R, N, rho=1.0, u_min=u_min, u_max=u_max)
 
 # Goal must be another equilibrium position
 prob.set_x_ref(np.array([1.0, 0, 0, 0]))

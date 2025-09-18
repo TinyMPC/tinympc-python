@@ -51,15 +51,16 @@ qcx = np.array([3])     # dimensions for state cones
 qcu = np.array([3])     # dimensions for input cones
 
 # Setup solver
+cone_constraints = {
+    'Acu': Acu, 'qcu': qcu, 'cu': cu,
+    'Acx': Acx, 'qcx': qcx, 'cx': cx
+}
+
 solver = tinympc.TinyMPC()
 solver.setup(A, B, Q, R, NHORIZON, rho=1.0, fdyn=fdyn,
-             max_iter=100, abs_pri_tol=2e-3, verbose=True)
-
-# Set bounds explicitly 
-solver.set_bound_constraints(x_min, x_max, u_min, u_max)
-
-# Set cone constraints (inputs first)
-solver.set_cone_constraints(Acu, qcu, cu, Acx, qcx, cx)
+             max_iter=100, abs_pri_tol=2e-3, verbose=True,
+             x_min=x_min, x_max=x_max, u_min=u_min, u_max=u_max,
+             cone_constraints=cone_constraints)
 
 # Initial and goal states
 xinit = np.array([4.0, 2.0, 20.0, -3.0, 2.0, -4.5])
