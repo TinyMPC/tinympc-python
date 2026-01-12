@@ -1,4 +1,4 @@
 [submodule "tinympc/TinyMPC"]
 	path = tinympc/TinyMPC
-	url = https://github.com/TinyMPC/TinyMPC.git
-	branch = main
+	url = https://github.com/seanmabli/TinyMPC.git
+	branch = modernize-examples
