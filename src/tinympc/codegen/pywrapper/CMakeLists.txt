@@ -3,6 +3,11 @@ project(tinympc_codegen_ext)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
 
+if(DEFINED PYTHON_EXECUTABLE)
+    set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+    set(PYBIND11_PYTHON_VERSION "" CACHE STRING "")
+endif()
+
 # Add Eigen include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -38,6 +43,7 @@ target_include_directories(tiny_codegen_example PUBLIC
 target_link_libraries(tiny_codegen_example LINK_PUBLIC tinympcstatic)
 
 # Create python module
+set(PYBIND11_FINDPYTHON ON)
 include(FetchContent)
 FetchContent_Declare(
   pybind11

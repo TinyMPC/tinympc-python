@@ -6,6 +6,27 @@ import importlib
 import importlib.resources
 import numpy as np
 
+def _get_tinympc_lib_path():
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(repo_root, 'tinympc', 'TinyMPC')
+
+def _copy_tinympc_sources(codegen_folder_abs):
+    tinympc_lib = _get_tinympc_lib_path()
+    if not os.path.exists(tinympc_lib):
+        raise FileNotFoundError(
+            f"TinyMPC library not found at {tinympc_lib}. "
+            "Please ensure the git submodule is initialized: git submodule update --init --recursive"
+        )
+    
+    eigen_src = os.path.join(tinympc_lib, 'include', 'Eigen')
+    eigen_dst = os.path.join(codegen_folder_abs, 'include', 'Eigen')
+    os.makedirs(os.path.dirname(eigen_dst), exist_ok=True)
+    shutil.copytree(eigen_src, eigen_dst, dirs_exist_ok=True)
+    
+    tinympc_src = os.path.join(tinympc_lib, 'src', 'tinympc')
+    tinympc_dst = os.path.join(codegen_folder_abs, 'tinympc')
+    shutil.copytree(tinympc_src, tinympc_dst, dirs_exist_ok=True)
+
 class TinyMPC:
     def __init__(self):
         self.nx = 0 # number of states
@@ -218,14 +239,7 @@ class TinyMPC:
             codegen_folder_abs += os.path.sep
         status = self._solver.codegen(codegen_folder_abs, verbose)
         
-        # Copy include/* (Eigen lib) and tinympc/(admm.hpp/cpp, api.hpp/cpp, constants.hpp, and types.hpp)
-        # https://github.com/python/importlib_resources/issues/85
-        try:
-            handle = importlib.resources.files('tinympc.codegen').joinpath('codegen_src')
-        except AttributeError:
-            handle = importlib.resources.path('tinympc.codegen', 'codegen_src')
-        with handle as codegen_src_path:
-            shutil.copytree(codegen_src_path, codegen_folder_abs, dirs_exist_ok=True)
+        _copy_tinympc_sources(codegen_folder_abs)
         
         # Copy pywrapper files (bindings.cpp, CMakeLists.txt, and setup.py)
         try:
@@ -284,13 +298,7 @@ class TinyMPC:
         # Generate code with sensitivity matrices
         status = self._solver.codegen_with_sensitivity(codegen_folder_abs, dK_f, dP_f, dC1_f, dC2_f, verbose_int)
         
-        # Copy include/* and tinympc/ files
-        try:
-            handle = importlib.resources.files('tinympc.codegen').joinpath('codegen_src')
-        except AttributeError:
-            handle = importlib.resources.path('tinympc.codegen', 'codegen_src')
-        with handle as codegen_src_path:
-            shutil.copytree(codegen_src_path, codegen_folder_abs, dirs_exist_ok=True)
+        _copy_tinympc_sources(codegen_folder_abs)
         
         # Copy pywrapper files
         try:

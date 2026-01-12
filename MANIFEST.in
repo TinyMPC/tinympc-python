@@ -1,2 +1,1 @@
-recursive-include src/tinympc/codegen/codegen_src *
 recursive-include src/tinympc/codegen/pywrapper * 
